@@ -24,7 +24,7 @@ jobs:
           node-version-file: ".nvmrc"
 
       - name: Install yarn with Corepack
-        run: corepack enable yarn && yarn -v
+        run: yarn -v
 
       - name: Cache dependencies
         uses: actions/cache@v4
