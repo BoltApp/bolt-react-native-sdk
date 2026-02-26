@@ -17,6 +17,12 @@ const config = withMetroConfig(getDefaultConfig(__dirname), {
   dirname: __dirname,
 });
 
+// Yarn workspaces hoists all packages to the root node_modules.
+// Tell Metro to look there when example/node_modules doesn't exist.
+config.resolver.nodeModulesPaths = [
+  path.resolve(__dirname, '..', 'node_modules'),
+];
+
 // When all peer deps share the same node_modules (e.g. a single-package monorepo),
 // withMetroConfig sets resolver.blockList to [] (empty array). Metro's internal
 // getIgnorePattern() converts that to /(?:)/ which matches every path, causing
