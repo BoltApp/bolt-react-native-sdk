@@ -1,3 +1,4 @@
+/* eslint-disable no-bitwise */
 /**
  * Simple UUID v4 generator that doesn't require external dependencies.
  * Uses Math.random() which is sufficient for checkout page IDs.
