@@ -2,7 +2,8 @@
   "compilerOptions": {
     "rootDir": ".",
     "paths": {
-      "bolt-react-native-sdk": ["./src/index"]
+      "bolt-react-native-sdk": ["./src/index"],
+      "bolt-react-native-sdk/payments": ["./src/payments/index"]
     },
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,

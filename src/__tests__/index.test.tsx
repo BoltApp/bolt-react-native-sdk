@@ -1,1 +1,19 @@
-it.todo('write a test');
+import { Bolt } from '../client/Bolt';
+import { BoltProvider, useBolt } from '../client/BoltProvider';
+
+describe('Root exports', () => {
+  it('should export Bolt class', () => {
+    expect(Bolt).toBeDefined();
+    expect(typeof Bolt).toBe('function');
+  });
+
+  it('should export BoltProvider', () => {
+    expect(BoltProvider).toBeDefined();
+    expect(typeof BoltProvider).toBe('function');
+  });
+
+  it('should export useBolt hook', () => {
+    expect(useBolt).toBeDefined();
+    expect(typeof useBolt).toBe('function');
+  });
+});
