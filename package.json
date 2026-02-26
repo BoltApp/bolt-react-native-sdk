@@ -1,5 +1,5 @@
 {
-  "name": "bolt-react-native-sdk",
+  "name": "@boltpay/react-native",
   "version": "0.1.0",
   "description": "Bolt React Native SDK",
   "main": "./lib/module/index.js",
@@ -99,24 +99,6 @@
     "example"
   ],
   "packageManager": "yarn@4.12.0",
-  "react-native-builder-bob": {
-    "source": "src",
-    "output": "lib",
-    "targets": [
-      [
-        "module",
-        {
-          "esm": true
-        }
-      ],
-      [
-        "typescript",
-        {
-          "project": "tsconfig.build.json"
-        }
-      ]
-    ]
-  },
   "codegenConfig": {
     "name": "BoltReactNativeSdkSpec",
     "type": "all",
@@ -124,64 +106,5 @@
     "android": {
       "javaPackageName": "com.boltreactnativesdk"
     }
-  },
-  "jest": {
-    "preset": "react-native",
-    "modulePathIgnorePatterns": [
-      "<rootDir>/example/node_modules",
-      "<rootDir>/lib/"
-    ],
-    "reporters": [
-      "default",
-      [
-        "jest-junit",
-        {
-          "outputDirectory": "./test-results",
-          "outputName": "junit.xml"
-        }
-      ]
-    ]
-  },
-  "commitlint": {
-    "extends": [
-      "@commitlint/config-conventional"
-    ]
-  },
-  "release-it": {
-    "git": {
-      "commitMessage": "chore: release ${version}",
-      "tagName": "v${version}"
-    },
-    "npm": {
-      "publish": true
-    },
-    "github": {
-      "release": true
-    },
-    "plugins": {
-      "@release-it/conventional-changelog": {
-        "preset": {
-          "name": "angular"
-        }
-      }
-    }
-  },
-  "prettier": {
-    "quoteProps": "consistent",
-    "singleQuote": true,
-    "tabWidth": 2,
-    "trailingComma": "es5",
-    "useTabs": false
-  },
-  "create-react-native-library": {
-    "type": "turbo-module",
-    "languages": "kotlin-objc",
-    "tools": [
-      "jest",
-      "lefthook",
-      "release-it",
-      "eslint"
-    ],
-    "version": "0.57.2"
   }
 }

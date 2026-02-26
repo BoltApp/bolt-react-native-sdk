@@ -1,0 +1,20 @@
+/** @type {import('jest').Config} */
+const config = {
+  preset: 'react-native',
+  modulePathIgnorePatterns: [
+    '<rootDir>/example/node_modules',
+    '<rootDir>/lib/',
+  ],
+  reporters: [
+    'default',
+    [
+      'jest-junit',
+      {
+        outputDirectory: './test-results',
+        outputName: 'junit.xml',
+      },
+    ],
+  ],
+};
+
+module.exports = config;
