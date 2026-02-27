@@ -7,7 +7,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import NativeGooglePay from '../native/NativeGooglePay';
-import { useBolt } from '../client/BoltProvider';
+import { useBolt } from '../client/useBolt';
 import type { GooglePayResult, GooglePayConfig } from './types';
 
 export interface GoogleWalletProps {
@@ -23,12 +23,12 @@ export interface GoogleWalletProps {
  *
  * Only renders on Android when Google Pay is available.
  */
-export function GoogleWallet({
+export const GoogleWallet = ({
   config,
   onComplete,
   onError,
   style,
-}: GoogleWalletProps) {
+}: GoogleWalletProps) => {
   const bolt = useBolt();
   const [available, setAvailable] = useState(false);
 
@@ -77,7 +77,7 @@ export function GoogleWallet({
       <Text style={styles.buttonText}>Google Pay</Text>
     </TouchableOpacity>
   );
-}
+};
 
 const styles = StyleSheet.create({
   button: {

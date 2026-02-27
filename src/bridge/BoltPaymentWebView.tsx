@@ -12,7 +12,7 @@ import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTyp
 import { INJECTED_BRIDGE_JS } from './injectedBridge';
 import { BoltBridgeDispatcher } from './BoltBridgeDispatcher';
 import { buildIframeUrl } from './buildIframeUrl';
-import { useBolt } from '../client/BoltProvider';
+import { useBolt } from '../client/useBolt';
 
 export interface BoltPaymentWebViewProps {
   element: string;

@@ -1,6 +1,6 @@
 import { BoltBridgeDispatcher } from '../bridge/BoltBridgeDispatcher';
 
-function createMockWebViewRef() {
+const createMockWebViewRef = () => {
   const injectedScripts: string[] = [];
   const ref = {
     current: {
@@ -11,38 +11,34 @@ function createMockWebViewRef() {
     },
   };
   return { ref, injectedScripts };
-}
+};
 
-function createDispatcher() {
+const createDispatcher = () => {
   const { ref, injectedScripts } = createMockWebViewRef();
   const dispatcher = new BoltBridgeDispatcher(ref as any);
   return { dispatcher, ref, injectedScripts };
-}
+};
 
-function makeBridgeReadyEvent() {
-  return {
-    nativeEvent: {
-      data: JSON.stringify({
-        __boltBridge: true,
-        direction: 'outbound',
-        type: 'bridgeReady',
-      }),
-    },
-  };
-}
+const makeBridgeReadyEvent = () => ({
+  nativeEvent: {
+    data: JSON.stringify({
+      __boltBridge: true,
+      direction: 'outbound',
+      type: 'bridgeReady',
+    }),
+  },
+});
 
-function makePostMessageEvent(data: unknown) {
-  return {
-    nativeEvent: {
-      data: JSON.stringify({
-        __boltBridge: true,
-        direction: 'outbound',
-        type: 'postMessage',
-        data,
-      }),
-    },
-  };
-}
+const makePostMessageEvent = (data: unknown) => ({
+  nativeEvent: {
+    data: JSON.stringify({
+      __boltBridge: true,
+      direction: 'outbound',
+      type: 'postMessage',
+      data,
+    }),
+  },
+});
 
 describe('BoltBridgeDispatcher', () => {
   it('should fire ready listeners on bridgeReady envelope', () => {

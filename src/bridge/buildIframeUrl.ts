@@ -17,7 +17,7 @@ export interface IframeUrlParams {
  *     origin=https%3A%2F%2Fconnect.bolt.com&publishableKey=pk_123&
  *     l=en&transport=rn-webview&checkoutPageID=uuid
  */
-export function buildIframeUrl(params: IframeUrlParams): string {
+export const buildIframeUrl = (params: IframeUrlParams): string => {
   const {
     baseUrl,
     element,
@@ -38,4 +38,4 @@ export function buildIframeUrl(params: IframeUrlParams): string {
   }
 
   return url.toString();
-}
+};
