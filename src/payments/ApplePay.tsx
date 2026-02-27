@@ -7,7 +7,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import NativeApplePay from '../native/NativeApplePay';
-import { useBolt } from '../client/BoltProvider';
+import { useBolt } from '../client/useBolt';
 import type { ApplePayResult, ApplePayConfig } from './types';
 
 export interface ApplePayProps {
@@ -24,13 +24,13 @@ export interface ApplePayProps {
  *
  * Only renders on iOS when Apple Pay is available.
  */
-export function ApplePay({
+export const ApplePay = ({
   config,
   onComplete,
   onError,
   style,
   buttonStyle = 'black',
-}: ApplePayProps) {
+}: ApplePayProps) => {
   const bolt = useBolt();
   const [available, setAvailable] = useState(false);
 
@@ -93,7 +93,7 @@ export function ApplePay({
       </Text>
     </TouchableOpacity>
   );
-}
+};
 
 const styles = StyleSheet.create({
   button: {

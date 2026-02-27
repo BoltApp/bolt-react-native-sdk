@@ -1,12 +1,10 @@
-import React, { useRef, useMemo, useCallback } from 'react';
+import { useRef, useMemo, useCallback } from 'react';
 import type { ViewStyle } from 'react-native';
-import {
-  BoltPaymentWebView,
-  type BoltPaymentWebViewHandle,
-} from '../bridge/BoltPaymentWebView';
 import { BoltBridgeDispatcher } from '../bridge/BoltBridgeDispatcher';
+import { parseBoltMessage } from '../bridge/parseBoltMessage';
 import type { CreditCardInfo, ThreeDSConfig, ThreeDSResult } from './types';
 import type WebView from 'react-native-webview';
+import { ThreeDSecureComponent } from './ThreeDSecureComponent';
 
 export interface UseThreeDSecureReturn {
   /**
@@ -33,25 +31,7 @@ export interface UseThreeDSecureReturn {
 }
 
 /**
- * Parse a Bolt message from the 3DS iframe.
- */
-function parseBoltMessage(data: unknown): Record<string, unknown> | null {
-  let msg = data;
-  if (typeof msg === 'string') {
-    try {
-      msg = JSON.parse(msg);
-    } catch {
-      return null;
-    }
-  }
-  if (typeof msg === 'object' && msg !== null) {
-    return msg as Record<string, unknown>;
-  }
-  return null;
-}
-
-/**
- * useThreeDSecure — hook that creates a 3DS controller.
+ * Hook that creates a 3DS controller.
  *
  * Usage:
  *   const threeDSecure = useThreeDSecure()
@@ -59,19 +39,13 @@ function parseBoltMessage(data: unknown): Record<string, unknown> | null {
  *   const refId = await threeDSecure.fetchReferenceID({ token, bin, last4 })
  *   const result = await threeDSecure.challengeWithConfig(orderId, config)
  */
-export function useThreeDSecure(): UseThreeDSecureReturn {
+export const useThreeDSecure = (): UseThreeDSecureReturn => {
   const webViewRef = useRef<WebView | null>(null);
-  const webViewHandleRef = useRef<BoltPaymentWebViewHandle>(null);
   const dispatcher = useMemo(() => new BoltBridgeDispatcher(webViewRef), []);
 
-  const ThreeDSecureComponent = useCallback(
+  const Component = useCallback(
     ({ style }: { style?: ViewStyle }) => (
-      <BoltPaymentWebView
-        ref={webViewHandleRef}
-        element="3d-secure"
-        dispatcher={dispatcher}
-        style={style}
-      />
+      <ThreeDSecureComponent dispatcher={dispatcher} style={style} />
     ),
     [dispatcher]
   );
@@ -158,10 +132,10 @@ export function useThreeDSecure(): UseThreeDSecureReturn {
 
   return useMemo(
     () => ({
-      Component: ThreeDSecureComponent,
+      Component,
       fetchReferenceID,
       challengeWithConfig,
     }),
-    [ThreeDSecureComponent, fetchReferenceID, challengeWithConfig]
+    [Component, fetchReferenceID, challengeWithConfig]
   );
-}
+};

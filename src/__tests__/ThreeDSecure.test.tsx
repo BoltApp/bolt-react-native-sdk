@@ -1,4 +1,4 @@
-import { useThreeDSecure } from '../payments/ThreeDSecure';
+import { useThreeDSecure } from '../payments/useThreeDSecure';
 
 // Mock react-native-webview
 jest.mock('react-native-webview', () => {

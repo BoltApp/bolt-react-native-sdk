@@ -1,11 +1,9 @@
 export { CreditCard } from './CreditCard';
-export type {
-  CreditCardController,
-  CreditCardComponentProps,
-} from './CreditCard';
+export type { CreditCardController } from './useCreditCardController';
+export type { CreditCardComponentProps } from './CreditCardComponent';
 
-export { useThreeDSecure } from './ThreeDSecure';
-export type { UseThreeDSecureReturn } from './ThreeDSecure';
+export { useThreeDSecure } from './useThreeDSecure';
+export type { UseThreeDSecureReturn } from './useThreeDSecure';
 
 export { ApplePay } from './ApplePay';
 export type { ApplePayProps } from './ApplePay';

@@ -1,5 +1,6 @@
 import { Bolt } from '../client/Bolt';
-import { BoltProvider, useBolt } from '../client/BoltProvider';
+import { BoltProvider } from '../client/BoltProvider';
+import { useBolt } from '../client/useBolt';
 
 describe('Root exports', () => {
   it('should export Bolt class', () => {
