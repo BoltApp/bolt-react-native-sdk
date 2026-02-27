@@ -1,4 +1,4 @@
-# Bolt React Native SDK — Implementation Plan
+# Bolt React Native SDK -- Implementation Plan
 
 ## Status Summary
 
