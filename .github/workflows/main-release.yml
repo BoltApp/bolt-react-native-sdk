@@ -28,13 +28,16 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - uses: ./.github/actions/setup
-        with:
-          registry-url: "https://registry.npmjs.org"
 
       - name: Release version
         run: yarn release --ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup npm registry
+        uses: actions/setup-node@v4
+        with:
+          registry-url: "https://registry.npmjs.org"
 
       - name: Build
         run: yarn prepare
