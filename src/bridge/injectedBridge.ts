@@ -26,6 +26,12 @@ export const INJECTED_BRIDGE_JS = `
 (function() {
   'use strict';
 
+  // Only install the bridge in the top-level WebView frame.
+  // Bolt's credit-card-input loads sub-iframes for each field (PCI compliance).
+  // Those sub-frames must communicate with their real parent (the main frame),
+  // not with React Native. Check BEFORE we patch window.parent.
+  if (window.parent !== window) return;
+
   // Guard against double-injection
   if (window.__boltBridgeInitialized) return;
   window.__boltBridgeInitialized = true;
@@ -151,14 +157,29 @@ export const INJECTED_BRIDGE_JS = `
   // to create synthetic MessageEvents with the correct origin.
 
   var originalAddEventListener = window.addEventListener.bind(window);
+  var originalRemoveEventListener = window.removeEventListener.bind(window);
   var messageListeners = [];
 
   window.addEventListener = function(type, listener, options) {
     if (type === 'message' && typeof listener === 'function') {
-      messageListeners.push(listener);
+      // Prevent duplicate registrations of the same listener
+      if (messageListeners.indexOf(listener) === -1) {
+        messageListeners.push(listener);
+      }
       return;
     }
     return originalAddEventListener(type, listener, options);
+  };
+
+  window.removeEventListener = function(type, listener, options) {
+    if (type === 'message' && typeof listener === 'function') {
+      var idx = messageListeners.indexOf(listener);
+      if (idx !== -1) {
+        messageListeners.splice(idx, 1);
+      }
+      return;
+    }
+    return originalRemoveEventListener(type, listener, options);
   };
 
   // Dispatch a synthetic message event to all registered listeners
@@ -214,14 +235,21 @@ export const INJECTED_BRIDGE_JS = `
   };
 
   // ── Signal bridge ready ──────────────────────────────────
+  // Since this script runs via injectedJavaScriptBeforeContentLoaded, we
+  // wait for DOMContentLoaded so Bolt's iframe code has loaded and
+  // registered its message listeners before we flush any queued messages.
 
-  sendToNative(createEnvelope('bridgeReady', null));
-  bridgeReady = true;
-
-  // Also listen for the DOMContentLoaded to re-signal if needed
-  document.addEventListener('DOMContentLoaded', function() {
+  function signalReady() {
+    if (bridgeReady) return;
+    bridgeReady = true;
     sendToNative(createEnvelope('bridgeReady', null));
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', signalReady);
+  } else {
+    signalReady();
+  }
 })();
 true; // Required for injectedJavaScriptBeforeContentLoaded
 `;

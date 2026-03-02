@@ -2,6 +2,7 @@ import {
   forwardRef,
   useCallback,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -66,12 +67,16 @@ export const BoltPaymentWebView = forwardRef<
     [dispatcher]
   );
 
-  const uri = buildIframeUrl({
-    baseUrl: bolt.baseUrl,
-    element,
-    publishableKey: bolt.publishableKey,
-    language: bolt.language,
-  });
+  const uri = useMemo(
+    () =>
+      buildIframeUrl({
+        baseUrl: bolt.baseUrl,
+        element,
+        publishableKey: bolt.publishableKey,
+        language: bolt.language,
+      }),
+    [bolt.baseUrl, bolt.publishableKey, bolt.language, element]
+  );
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -124,6 +129,7 @@ export const BoltPaymentWebView = forwardRef<
       ref={webViewRefCallback}
       source={{ uri }}
       injectedJavaScriptBeforeContentLoaded={INJECTED_BRIDGE_JS}
+      injectedJavaScriptBeforeContentLoadedForMainFrameOnly={true}
       onMessage={handleMessage}
       originWhitelist={['https://*']}
       javaScriptEnabled={true}

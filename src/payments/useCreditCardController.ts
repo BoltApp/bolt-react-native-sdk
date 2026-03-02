@@ -2,11 +2,14 @@ import { useRef, useMemo, useCallback, useEffect } from 'react';
 import type { RefObject } from 'react';
 import { BoltBridgeDispatcher } from '../bridge/BoltBridgeDispatcher';
 import { parseBoltMessage } from '../bridge/parseBoltMessage';
-import type {
-  TokenResult,
-  EventType,
-  EventCallback,
-  EventListeners,
+import { useBolt } from '../client/useBolt';
+import {
+  validationErrorMap,
+  type Styles,
+  type TokenResult,
+  type EventType,
+  type EventCallback,
+  type EventListeners,
 } from './types';
 import type WebView from 'react-native-webview';
 
@@ -33,7 +36,11 @@ export interface CreditCardController {
   /**
    * Update the styles of the credit card input fields.
    */
-  setStyles: (styles: Record<string, unknown>) => void;
+  setStyles: (styles: Styles) => void;
+}
+
+export interface CreditCardControllerOptions {
+  styles?: Styles;
 }
 
 /**
@@ -46,10 +53,14 @@ export interface CreditCardController {
  *   const result = await cc.tokenize()
  *   if (result instanceof Error) { ... }
  */
-export const useCreditCardController = (): CreditCardController => {
+export const useCreditCardController = (
+  options?: CreditCardControllerOptions
+): CreditCardController => {
+  const bolt = useBolt();
   const webViewRef = useRef<WebView | null>(null);
   const dispatcher = useMemo(() => new BoltBridgeDispatcher(webViewRef), []);
   const listenersRef = useRef<Partial<EventListeners>>({});
+  const optionsRef = useRef(options);
 
   // Listen for FrameInitialized and field events
   useEffect(() => {
@@ -63,7 +74,10 @@ export const useCreditCardController = (): CreditCardController => {
           dispatcher.sendMessage(
             JSON.stringify({
               type: 'SetConfig',
-              options: {},
+              config: {
+                styles: optionsRef.current?.styles,
+                onPageStyles: bolt.getOnPageStyles(),
+              },
             })
           );
           break;
@@ -85,7 +99,7 @@ export const useCreditCardController = (): CreditCardController => {
     });
 
     return unsub;
-  }, [dispatcher]);
+  }, [dispatcher, bolt]);
 
   const on = useCallback((eventType: EventType, callback: EventCallback) => {
     listenersRef.current[eventType] = callback;
@@ -93,67 +107,89 @@ export const useCreditCardController = (): CreditCardController => {
 
   const tokenize = useCallback((): Promise<TokenResult | Error> => {
     return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
+      let resolved = false;
+      let firstError: Error | null = null;
+      let errorDebounce: ReturnType<typeof setTimeout> | null = null;
+
+      const cleanup = () => {
+        resolved = true;
+        clearTimeout(overallTimeout);
+        if (errorDebounce !== null) clearTimeout(errorDebounce);
         unsub();
-        resolve(new Error('Tokenization timed out'));
+      };
+
+      const overallTimeout = setTimeout(() => {
+        if (resolved) return;
+        cleanup();
+        resolve(firstError ?? new Error('Tokenization timed out'));
       }, 30000);
 
       const unsub = dispatcher.onMessage((data) => {
+        if (resolved) return;
         const msg = parseBoltMessage(data);
-        if (!msg) return;
+        if (!msg || msg.type !== 'GetTokenReply') return;
 
-        if (msg.type === 'GetTokenReply') {
-          clearTimeout(timeout);
-          unsub();
+        const token = msg.token as Record<string, unknown> | undefined;
 
-          if (
-            msg.error ||
-            (msg.token &&
-              typeof msg.token === 'object' &&
-              'errorMessage' in (msg.token as object))
-          ) {
-            const errorMessage =
-              msg.error ??
-              (msg.token as Record<string, unknown>)?.errorMessage ??
-              'Tokenization failed';
-            resolve(new Error(String(errorMessage)));
-            return;
-          }
-
+        // Success case: token contains actual card data (has 'token' field, no 'errorMessage')
+        if (
+          token &&
+          typeof token === 'object' &&
+          'token' in token &&
+          !('errorMessage' in token)
+        ) {
+          cleanup();
           resolve({
-            token: msg.token != null ? String(msg.token) : undefined,
+            token:
+              token.token !== undefined && token.token !== null
+                ? String(token.token)
+                : undefined,
             last4:
-              msg.last4 != null
-                ? String(msg.last4)
-                : msg.ccLast4 != null
-                  ? String(msg.ccLast4)
-                  : undefined,
+              token.last4 !== undefined && token.last4 !== null
+                ? String(token.last4)
+                : undefined,
             bin:
-              msg.bin != null
-                ? String(msg.bin)
-                : msg.ccBin != null
-                  ? String(msg.ccBin)
-                  : undefined,
+              token.bin !== undefined && token.bin !== null
+                ? String(token.bin)
+                : undefined,
             network:
-              msg.network != null
-                ? String(msg.network)
-                : msg.ccNetwork != null
-                  ? String(msg.ccNetwork)
-                  : undefined,
+              token.network !== undefined && token.network !== null
+                ? String(token.network)
+                : undefined,
             expiration:
-              msg.expiration != null
-                ? String(msg.expiration)
-                : msg.ccExpiry != null
-                  ? String(msg.ccExpiry)
-                  : undefined,
+              token.expiration !== undefined && token.expiration !== null
+                ? String(token.expiration)
+                : undefined,
             postal_code:
-              msg.postal_code != null
-                ? String(msg.postal_code)
-                : msg.ccPostal != null
-                  ? String(msg.ccPostal)
-                  : undefined,
+              msg.ccPostal !== undefined && msg.ccPostal !== null
+                ? String(msg.ccPostal)
+                : undefined,
           });
+          return;
         }
+
+        // Error case: token is { errorMessage: number | string }
+        // Collect the first error but don't resolve yet — a success reply may follow.
+        if (
+          !firstError &&
+          (msg.error ||
+            (token && typeof token === 'object' && 'errorMessage' in token))
+        ) {
+          const rawError =
+            msg.error ?? token?.errorMessage ?? 'Tokenization failed';
+          const code =
+            typeof rawError === 'number' ? rawError : Number(rawError);
+          const message = validationErrorMap.get(code) ?? String(rawError);
+          firstError = new Error(message);
+        }
+
+        // Reset debounce: resolve with error if no success arrives within 1.5s
+        if (errorDebounce !== null) clearTimeout(errorDebounce);
+        errorDebounce = setTimeout(() => {
+          if (resolved) return;
+          cleanup();
+          resolve(firstError ?? new Error('Tokenization failed'));
+        }, 1500);
       });
 
       dispatcher.sendMessage(JSON.stringify({ type: 'GetToken' }));
@@ -161,7 +197,7 @@ export const useCreditCardController = (): CreditCardController => {
   }, [dispatcher]);
 
   const setStyles = useCallback(
-    (styles: Record<string, unknown>) => {
+    (styles: Styles) => {
       dispatcher.sendMessage(JSON.stringify({ type: 'SetStyles', styles }));
     },
     [dispatcher]

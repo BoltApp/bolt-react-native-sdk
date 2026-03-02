@@ -2,8 +2,8 @@
   "compilerOptions": {
     "rootDir": ".",
     "paths": {
-      "bolt-react-native-sdk": ["./src/index"],
-      "bolt-react-native-sdk/payments": ["./src/payments/index"]
+      "@boltpay/react-native": ["./src/index"],
+      "@boltpay/react-native/payments": ["./src/payments/index"]
     },
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
@@ -12,6 +12,7 @@
     "forceConsistentCasingInFileNames": true,
     "jsx": "react-jsx",
     "lib": ["ESNext"],
+    "types": ["jest", "react-native"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "noEmit": true,

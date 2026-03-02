@@ -1,5 +1,6 @@
 import { Bolt } from '../client/Bolt';
 import { CreditCard } from '../payments/CreditCard';
+import type { Styles } from '../payments/types';
 
 // Mock react-native-webview
 jest.mock('react-native-webview', () => {
@@ -32,10 +33,48 @@ describe('Bolt', () => {
     expect(bolt.baseUrl).toBe('https://connect-sandbox.bolt.com');
   });
 
+  it('should use staging URL when environment is staging', () => {
+    const bolt = new Bolt({
+      publishableKey: 'pk_test_123',
+      environment: 'staging',
+    });
+    expect(bolt.baseUrl).toBe('https://connect-staging.bolt.com');
+  });
+
   it('should throw when publishableKey is missing', () => {
     expect(() => new Bolt({ publishableKey: '' })).toThrow(
       'publishableKey is required'
     );
+  });
+
+  it('should have no onPageStyles by default', () => {
+    const bolt = new Bolt({ publishableKey: 'pk_test_123' });
+    expect(bolt.getOnPageStyles()).toBeUndefined();
+  });
+
+  it('should store and return onPageStyles', () => {
+    const bolt = new Bolt({ publishableKey: 'pk_test_123' });
+    const styles: Styles = {
+      'version': 3,
+      '--bolt-input-fontFamily': 'Inter, sans-serif',
+      '--bolt-input-fontSize': '16px',
+    };
+    bolt.configureOnPageStyles(styles);
+    expect(bolt.getOnPageStyles()).toEqual(styles);
+  });
+
+  it('should overwrite onPageStyles when called again', () => {
+    const bolt = new Bolt({ publishableKey: 'pk_test_123' });
+    bolt.configureOnPageStyles({
+      'version': 3,
+      '--bolt-input-fontFamily': 'Arial',
+    });
+    const newStyles: Styles = {
+      'version': 3,
+      '--bolt-input-fontFamily': 'Inter',
+    };
+    bolt.configureOnPageStyles(newStyles);
+    expect(bolt.getOnPageStyles()).toEqual(newStyles);
   });
 });
 

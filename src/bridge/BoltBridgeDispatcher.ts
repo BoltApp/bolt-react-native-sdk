@@ -30,9 +30,16 @@ export class BoltBridgeDispatcher {
   private messageListeners: MessageListener[] = [];
   private portListeners: Map<string, PortMessageListener> = new Map();
   private readyListeners: Array<() => void> = [];
+  public debug = typeof __DEV__ !== 'undefined' && __DEV__;
 
   constructor(webViewRef: RefObject<WebView | null>) {
     this.webViewRef = webViewRef;
+  }
+
+  private log(...args: unknown[]): void {
+    if (this.debug) {
+      console.log('[BoltBridge]', ...args);
+    }
   }
 
   /**
@@ -47,6 +54,7 @@ export class BoltBridgeDispatcher {
       parsed = JSON.parse(raw);
     } catch {
       // Not JSON — forward as raw Bolt message
+      this.log('← raw (non-JSON) message');
       this.notifyMessageListeners(raw);
       return;
     }
@@ -56,9 +64,11 @@ export class BoltBridgeDispatcher {
       parsed !== null &&
       '__boltBridge' in parsed
     ) {
+      this.log('← envelope:', (parsed as BridgeEnvelope).type);
       this.handleEnvelope(parsed as BridgeEnvelope);
     } else {
       // Valid JSON but not a bridge envelope — it's a Bolt message
+      this.log('← bolt message');
       this.notifyMessageListeners(raw);
     }
   };
@@ -77,10 +87,12 @@ export class BoltBridgeDispatcher {
     };
 
     if (!this.ready) {
+      this.log('→ queued (bridge not ready)');
       this.pendingMessages.push(envelope);
       return;
     }
 
+    this.log('→ sending:', envelope.type);
     this.injectEnvelope(envelope);
   }
 
@@ -147,6 +159,15 @@ export class BoltBridgeDispatcher {
   private handleEnvelope(envelope: BridgeEnvelope): void {
     switch (envelope.type) {
       case 'bridgeReady':
+        if (this.ready) {
+          this.log('bridge already ready, ignoring duplicate bridgeReady');
+          break;
+        }
+        this.log(
+          'bridge ready, flushing',
+          this.pendingMessages.length,
+          'pending messages'
+        );
         this.ready = true;
         this.flushPendingMessages();
         for (const listener of this.readyListeners) {

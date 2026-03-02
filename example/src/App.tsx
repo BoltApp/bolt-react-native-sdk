@@ -8,30 +8,57 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { Bolt, BoltProvider } from 'bolt-react-native-sdk';
+import { Bolt, BoltProvider } from '@boltpay/react-native';
 import {
   CreditCard,
   useThreeDSecure,
   ApplePay,
   GoogleWallet,
-} from 'bolt-react-native-sdk/payments';
+} from '@boltpay/react-native/payments';
 import type {
   TokenResult,
   ApplePayResult,
   GooglePayResult,
-} from 'bolt-react-native-sdk/payments';
+} from '@boltpay/react-native/payments';
 
 // Initialize Bolt with your publishable key
 const bolt = new Bolt({
-  publishableKey: 'YOUR_PUBLISHABLE_KEY',
-  environment: 'sandbox',
+  publishableKey:
+    'yayzpqS9Y7Qb.MBLn0CaZCM7I.aa226a2b80c3aac19300f82dc6be8e92c91b8df1d527311a79e8b190af1f6b2b',
+  environment: 'staging',
+});
+
+// Global styles applied to all Bolt components
+bolt.configureOnPageStyles({
+  'version': 3,
+  '--bolt-input-fontFamily': 'System',
+  '--bolt-input-fontSize': '16px',
+  '--bolt-input-borderRadius': '8px',
+  '--bolt-input-borderColor': '#d1d5db',
+  '--bolt-input_focus-borderColor': '#5A31F4',
 });
 
 const CheckoutScreen = () => {
-  const cc = CreditCard.useController();
+  // Per-element styles override global onPageStyles
+  const cc = CreditCard.useController({
+    styles: {
+      'version': 3,
+      '--bolt-input-backgroundColor': '#fafafa',
+    },
+  });
   const threeDSecure = useThreeDSecure();
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [cardValid, setCardValid] = useState(false);
+  const [fieldError, setFieldError] = useState<string | null>(null);
+
+  // Listen for field events
+  cc.on('valid', () => {
+    setCardValid(true);
+    setFieldError(null);
+  });
+  cc.on('error', (msg) => setFieldError(msg as string));
+  cc.on('focus', () => setFieldError(null));
 
   const handlePayment = useCallback(async () => {
     setLoading(true);
@@ -58,6 +85,11 @@ const CheckoutScreen = () => {
           `Network: ${result.network}\n` +
           `3DS Ref: ${referenceID.slice(0, 20)}...`
       );
+
+      // Reset form state for another payment
+      setTokenResult(null);
+      setCardValid(false);
+      setFieldError(null);
 
       // 3. In a real app, you would now create the payment on your backend:
       // const paymentResponse = await merchantApi.createPayment(result);
@@ -106,6 +138,8 @@ const CheckoutScreen = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Credit Card</Text>
         <CreditCard.Component controller={cc} style={styles.cardInput} />
+        {cardValid && <Text style={styles.validText}>Card details valid</Text>}
+        {fieldError && <Text style={styles.errorText}>{fieldError}</Text>}
       </View>
 
       {/* 3DS Component (hidden, but must be mounted) */}
@@ -113,9 +147,12 @@ const CheckoutScreen = () => {
 
       {/* Pay Button */}
       <TouchableOpacity
-        style={[styles.payButton, loading && styles.payButtonDisabled]}
+        style={[
+          styles.payButton,
+          (loading || !cardValid) && styles.payButtonDisabled,
+        ]}
         onPress={handlePayment}
-        disabled={loading}
+        disabled={loading || !cardValid}
       >
         <Text style={styles.payButtonText}>
           {loading ? 'Processing...' : 'Pay with Card'}
@@ -209,6 +246,16 @@ const styles = StyleSheet.create({
   },
   cardInput: {
     minHeight: 200,
+  },
+  validText: {
+    color: '#16a34a',
+    fontSize: 13,
+    marginTop: 8,
+  },
+  errorText: {
+    color: '#dc2626',
+    fontSize: 13,
+    marginTop: 8,
   },
   hidden: {
     height: 0,
