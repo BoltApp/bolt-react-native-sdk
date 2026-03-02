@@ -1,21 +1,27 @@
 import {
   forwardRef,
+  useCallback,
   useImperativeHandle,
   useRef,
-  useCallback,
   useState,
 } from 'react';
-import type { MutableRefObject } from 'react';
 import { StyleSheet, type ViewStyle } from 'react-native';
 import WebView, { type WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
-import { INJECTED_BRIDGE_JS } from './injectedBridge';
+import { useBolt } from '../client/useBolt';
 import { BoltBridgeDispatcher } from './BoltBridgeDispatcher';
 import { buildIframeUrl } from './buildIframeUrl';
-import { useBolt } from '../client/useBolt';
+import { INJECTED_BRIDGE_JS } from './injectedBridge';
+
+/**
+ * Bolt iframe element names supported in React Native.
+ * The storm embedded SDK has additional elements (authorization, login-status,
+ * payment-selector, etc.) that are out of scope for the initial release.
+ */
+export type BoltElementName = 'credit-card-input' | '3d-secure';
 
 export interface BoltPaymentWebViewProps {
-  element: string;
+  element: BoltElementName;
   dispatcher: BoltBridgeDispatcher;
   style?: ViewStyle;
   onHeightChange?: (height: number) => void;
@@ -51,15 +57,11 @@ export const BoltPaymentWebView = forwardRef<
     [dispatcher]
   );
 
-  // Wire dispatcher to the WebView ref
-  // The dispatcher needs the ref to inject JS back into the WebView
-  const setWebViewRefOnDispatcher = useCallback(
+  // Wire dispatcher to the WebView ref so it can inject JS back into the WebView
+  const webViewRefCallback = useCallback(
     (node: WebView | null) => {
-      (webViewRef as MutableRefObject<WebView | null>).current = node;
-      // Update the dispatcher's internal ref to point to this WebView
-      (
-        dispatcher as unknown as { webViewRef: { current: WebView | null } }
-      ).webViewRef.current = node;
+      webViewRef.current = node;
+      dispatcher.setWebView(node);
     },
     [dispatcher]
   );
@@ -119,7 +121,7 @@ export const BoltPaymentWebView = forwardRef<
 
   return (
     <WebView
-      ref={setWebViewRefOnDispatcher}
+      ref={webViewRefCallback}
       source={{ uri }}
       injectedJavaScriptBeforeContentLoaded={INJECTED_BRIDGE_JS}
       onMessage={handleMessage}

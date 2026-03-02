@@ -1,12 +1,13 @@
 export interface BoltConfig {
   publishableKey: string;
-  environment?: 'production' | 'sandbox';
+  environment?: 'production' | 'sandbox' | 'staging';
   language?: string;
 }
 
 const ENVIRONMENT_URLS: Record<string, string> = {
   production: 'https://connect.bolt.com',
   sandbox: 'https://connect-sandbox.bolt.com',
+  staging: 'https://connect-staging.bolt.com',
 };
 
 export class Bolt {

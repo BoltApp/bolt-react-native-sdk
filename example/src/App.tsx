@@ -27,7 +27,7 @@ const bolt = new Bolt({
   environment: 'sandbox',
 });
 
-function CheckoutScreen() {
+const CheckoutScreen = () => {
   const cc = CreditCard.useController();
   const threeDSecure = useThreeDSecure();
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null);
@@ -36,11 +36,15 @@ function CheckoutScreen() {
   const handlePayment = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Tokenize card
+      // 1. Tokenize card — returns TokenResult | Error (never throws)
       const result = await cc.tokenize();
+      if (result instanceof Error) {
+        Alert.alert('Tokenization Error', result.message);
+        return;
+      }
       setTokenResult(result);
 
-      // 2. Fetch 3DS reference ID
+      // 2. Fetch 3DS reference ID — throws ThreeDSError on failure
       const referenceID = await threeDSecure.fetchReferenceID({
         token: result.token,
         bin: result.bin,
@@ -49,7 +53,7 @@ function CheckoutScreen() {
 
       Alert.alert(
         'Tokenization Success',
-        `Token: ${result.token.slice(0, 20)}...\n` +
+        `Token: ${result.token?.slice(0, 20)}...\n` +
           `Last4: ${result.last4}\n` +
           `Network: ${result.network}\n` +
           `3DS Ref: ${referenceID.slice(0, 20)}...`
@@ -58,7 +62,7 @@ function CheckoutScreen() {
       // 3. In a real app, you would now create the payment on your backend:
       // const paymentResponse = await merchantApi.createPayment(result);
       //
-      // 4. Handle 3DS challenge if required:
+      // 4. Handle 3DS challenge if required — returns ThreeDSResult (never throws):
       // if (paymentResponse[".tag"] === "three_ds_required") {
       //   const challengeResult = await threeDSecure.challengeWithConfig(
       //     paymentResponse.id,
@@ -68,6 +72,9 @@ function CheckoutScreen() {
       //       stepUpUrl: paymentResponse.step_up_url,
       //     }
       //   );
+      //   if (!challengeResult.success) {
+      //     Alert.alert('3DS Failed', challengeResult.error?.message);
+      //   }
       // }
     } catch (error) {
       Alert.alert(
@@ -160,7 +167,7 @@ function CheckoutScreen() {
       </View>
     </ScrollView>
   );
-}
+};
 
 export default function App() {
   return (
