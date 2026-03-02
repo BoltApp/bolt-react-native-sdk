@@ -1,8 +1,8 @@
-import { v4 as uuidv4 } from './uuid';
+import type { BoltElementName } from './BoltPaymentWebView';
 
 export interface IframeUrlParams {
   baseUrl: string;
-  element: string;
+  element: BoltElementName;
   publishableKey: string;
   language?: string;
   merchantClientId?: string;
@@ -31,7 +31,7 @@ export const buildIframeUrl = (params: IframeUrlParams): string => {
   url.searchParams.set('publishableKey', publishableKey);
   url.searchParams.set('l', language);
   url.searchParams.set('transport', 'rn-webview');
-  url.searchParams.set('checkoutPageID', uuidv4());
+  url.searchParams.set('checkoutPageID', crypto.randomUUID());
 
   if (merchantClientId) {
     url.searchParams.set('mcid', merchantClientId);

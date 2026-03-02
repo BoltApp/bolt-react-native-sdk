@@ -11,8 +11,14 @@ export type { ApplePayProps } from './ApplePay';
 export { GoogleWallet } from './GoogleWallet';
 export type { GoogleWalletProps } from './GoogleWallet';
 
+export { ThreeDSError, errorCodeToMessageMap } from './types';
+
 export type {
   TokenResult,
+  EventType,
+  EventCallback,
+  EventListeners,
+  CreditCardId,
   CreditCardInfo,
   ThreeDSConfig,
   ThreeDSResult,

@@ -2,24 +2,34 @@ import { useRef, useMemo, useCallback, useEffect } from 'react';
 import type { RefObject } from 'react';
 import { BoltBridgeDispatcher } from '../bridge/BoltBridgeDispatcher';
 import { parseBoltMessage } from '../bridge/parseBoltMessage';
-import type { TokenResult } from './types';
+import type {
+  TokenResult,
+  EventType,
+  EventCallback,
+  EventListeners,
+} from './types';
 import type WebView from 'react-native-webview';
 
 /**
- * Controller returned by useCreditCardController().
- * Manages the bridge dispatcher and exposes tokenize().
+ * Controller returned by CreditCard.useController().
+ * Matches the CreditCardInputElement interface from the web embedded SDK.
  */
 export interface CreditCardController {
-  /** Internal ref — pass to CreditCard.Component via controller prop */
-  _webViewRef: RefObject<WebView | null>;
-  /** Internal dispatcher — used by CreditCard.Component */
-  _dispatcher: BoltBridgeDispatcher;
+  /** Ref to the underlying WebView — used by CreditCard.Component */
+  webViewRef: RefObject<WebView | null>;
+  /** Bridge dispatcher — used by CreditCard.Component */
+  dispatcher: BoltBridgeDispatcher;
+  /**
+   * Register an event listener for field events.
+   * Matches element.on() from the web SDK.
+   */
+  on: (eventType: EventType, callback: EventCallback) => void;
   /**
    * Tokenize the entered credit card data.
-   * Sends GetToken to the WebView, waits for GetTokenReply.
-   * Returns token details including last4, bin, network, expiration.
+   * Returns TokenResult on success, Error on failure — never throws.
+   * Matches element.tokenize() from the web SDK.
    */
-  tokenize: () => Promise<TokenResult>;
+  tokenize: () => Promise<TokenResult | Error>;
   /**
    * Update the styles of the credit card input fields.
    */
@@ -32,40 +42,60 @@ export interface CreditCardController {
  * Usage:
  *   const cc = CreditCard.useController()
  *   <CreditCard.Component controller={cc} />
- *   const token = await cc.tokenize()
+ *   cc.on('valid', () => setCanSubmit(true))
+ *   const result = await cc.tokenize()
+ *   if (result instanceof Error) { ... }
  */
 export const useCreditCardController = (): CreditCardController => {
   const webViewRef = useRef<WebView | null>(null);
   const dispatcher = useMemo(() => new BoltBridgeDispatcher(webViewRef), []);
+  const listenersRef = useRef<Partial<EventListeners>>({});
 
-  // Listen for FrameInitialized and send initial config
+  // Listen for FrameInitialized and field events
   useEffect(() => {
     const unsub = dispatcher.onMessage((data) => {
       const msg = parseBoltMessage(data);
       if (!msg) return;
 
-      if (
-        msg.type === 'CreditCard.FrameInitialized' ||
-        msg.type === 'FrameInitialized'
-      ) {
-        // Send SetConfig after initialization
-        dispatcher.sendMessage(
-          JSON.stringify({
-            type: 'SetConfig',
-            options: {},
-          })
-        );
+      switch (msg.type) {
+        case 'CreditCard.FrameInitialized':
+        case 'FrameInitialized':
+          dispatcher.sendMessage(
+            JSON.stringify({
+              type: 'SetConfig',
+              options: {},
+            })
+          );
+          break;
+        case 'Focus':
+          (listenersRef.current.focus as (() => void) | undefined)?.();
+          break;
+        case 'Blur':
+          (listenersRef.current.blur as (() => void) | undefined)?.();
+          break;
+        case 'Valid':
+          (listenersRef.current.valid as (() => void) | undefined)?.();
+          break;
+        case 'Error':
+          (listenersRef.current.error as ((e: string) => void) | undefined)?.(
+            String(msg.message ?? '')
+          );
+          break;
       }
     });
 
     return unsub;
   }, [dispatcher]);
 
-  const tokenize = useCallback((): Promise<TokenResult> => {
-    return new Promise((resolve, reject) => {
+  const on = useCallback((eventType: EventType, callback: EventCallback) => {
+    listenersRef.current[eventType] = callback;
+  }, []);
+
+  const tokenize = useCallback((): Promise<TokenResult | Error> => {
+    return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         unsub();
-        reject(new Error('Tokenization timed out'));
+        resolve(new Error('Tokenization timed out'));
       }, 30000);
 
       const unsub = dispatcher.onMessage((data) => {
@@ -76,23 +106,56 @@ export const useCreditCardController = (): CreditCardController => {
           clearTimeout(timeout);
           unsub();
 
-          if (msg.error) {
-            reject(new Error(String(msg.error)));
+          if (
+            msg.error ||
+            (msg.token &&
+              typeof msg.token === 'object' &&
+              'errorMessage' in (msg.token as object))
+          ) {
+            const errorMessage =
+              msg.error ??
+              (msg.token as Record<string, unknown>)?.errorMessage ??
+              'Tokenization failed';
+            resolve(new Error(String(errorMessage)));
             return;
           }
 
           resolve({
-            token: String(msg.token ?? ''),
-            last4: String(msg.last4 ?? msg.ccLast4 ?? ''),
-            bin: String(msg.bin ?? msg.ccBin ?? ''),
-            network: String(msg.network ?? msg.ccNetwork ?? ''),
-            expiration: String(msg.expiration ?? msg.ccExpiry ?? ''),
-            postal_code: String(msg.postal_code ?? msg.ccPostal ?? ''),
+            token: msg.token != null ? String(msg.token) : undefined,
+            last4:
+              msg.last4 != null
+                ? String(msg.last4)
+                : msg.ccLast4 != null
+                  ? String(msg.ccLast4)
+                  : undefined,
+            bin:
+              msg.bin != null
+                ? String(msg.bin)
+                : msg.ccBin != null
+                  ? String(msg.ccBin)
+                  : undefined,
+            network:
+              msg.network != null
+                ? String(msg.network)
+                : msg.ccNetwork != null
+                  ? String(msg.ccNetwork)
+                  : undefined,
+            expiration:
+              msg.expiration != null
+                ? String(msg.expiration)
+                : msg.ccExpiry != null
+                  ? String(msg.ccExpiry)
+                  : undefined,
+            postal_code:
+              msg.postal_code != null
+                ? String(msg.postal_code)
+                : msg.ccPostal != null
+                  ? String(msg.ccPostal)
+                  : undefined,
           });
         }
       });
 
-      // Send GetToken command to the iframe
       dispatcher.sendMessage(JSON.stringify({ type: 'GetToken' }));
     });
   }, [dispatcher]);
@@ -106,11 +169,12 @@ export const useCreditCardController = (): CreditCardController => {
 
   return useMemo(
     () => ({
-      _webViewRef: webViewRef,
-      _dispatcher: dispatcher,
+      webViewRef,
+      dispatcher,
+      on,
       tokenize,
       setStyles,
     }),
-    [dispatcher, tokenize, setStyles]
+    [dispatcher, on, tokenize, setStyles]
   );
 };

@@ -128,6 +128,13 @@ export class BoltBridgeDispatcher {
   }
 
   /**
+   * Set the WebView instance the dispatcher sends messages to.
+   */
+  setWebView(webView: WebView | null): void {
+    (this.webViewRef as { current: WebView | null }).current = webView;
+  }
+
+  /**
    * Reset the dispatcher state (e.g., when WebView reloads).
    */
   reset(): void {

@@ -24,7 +24,7 @@ export const CreditCardComponent = ({
     <BoltPaymentWebView
       ref={webViewHandleRef}
       element="credit-card-input"
-      dispatcher={controller._dispatcher}
+      dispatcher={controller.dispatcher}
       style={style}
     />
   );

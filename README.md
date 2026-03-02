@@ -57,28 +57,42 @@ function CheckoutScreen() {
   const cc = CreditCard.useController();
   const threeDSecure = useThreeDSecure();
 
-  const handlePayment = async () => {
-    // Tokenize the card
-    const tokenResult = await cc.tokenize();
-    // { token, last4, bin, network, expiration, postal_code }
+  // Listen for field events
+  cc.on('valid', () => setCanSubmit(true));
+  cc.on('error', (msg) => setFieldError(msg));
 
-    // Fetch 3DS reference ID
+  const handlePayment = async () => {
+    // 1. Tokenize — returns TokenResult | Error (never throws)
+    const result = await cc.tokenize();
+    if (result instanceof Error) {
+      console.error(result.message);
+      return;
+    }
+    // result: { token?, last4?, bin?, network?, expiration?, postal_code? }
+
+    // 2. Fetch 3DS reference ID — throws ThreeDSError on failure
     const referenceID = await threeDSecure.fetchReferenceID({
-      token: tokenResult.token,
-      bin: tokenResult.bin,
-      last4: tokenResult.last4,
+      token: result.token,
+      bin: result.bin,
+      last4: result.last4,
     });
 
-    // Send token to your backend to create the payment
-    const paymentResponse = await yourApi.createPayment(tokenResult);
+    // 3. Send token to your backend to create the payment
+    const paymentResponse = await yourApi.createPayment(result);
 
-    // Handle 3DS challenge if required
+    // 4. Handle 3DS challenge if required — returns ThreeDSResult (never throws)
     if (paymentResponse['.tag'] === 'three_ds_required') {
-      await threeDSecure.challengeWithConfig(paymentResponse.id, {
-        referenceID,
-        jwtPayload: paymentResponse.jwt_payload,
-        stepUpUrl: paymentResponse.step_up_url,
-      });
+      const challengeResult = await threeDSecure.challengeWithConfig(
+        paymentResponse.id,
+        {
+          referenceID,
+          jwtPayload: paymentResponse.jwt_payload,
+          stepUpUrl: paymentResponse.step_up_url,
+        }
+      );
+      if (!challengeResult.success) {
+        console.error(challengeResult.error?.message);
+      }
     }
   };
 
@@ -146,19 +160,52 @@ import { GoogleWallet } from '@boltpay/react-native/payments';
 | Export                       | Description                                                               |
 | ---------------------------- | ------------------------------------------------------------------------- |
 | `CreditCard.Component`       | WebView-based credit card input                                           |
-| `CreditCard.useController()` | Returns a controller with `tokenize()` and `setStyles()`                  |
+| `CreditCard.useController()` | Returns a controller with `tokenize()`, `on()`, and `setStyles()`         |
 | `useThreeDSecure()`          | Hook returning `{ Component, fetchReferenceID(), challengeWithConfig() }` |
 | `ApplePay`                   | Native Apple Pay button (iOS only, renders nothing on Android)            |
 | `GoogleWallet`               | Native Google Pay button (Android only, renders nothing on iOS)           |
 
+### Credit Card Controller
+
+| Method                | Description                                                        |
+| --------------------- | ------------------------------------------------------------------ |
+| `tokenize()`          | Returns `Promise<TokenResult \| Error>`. Never throws.             |
+| `on(event, callback)` | Register event listener. Events: `valid`, `error`, `blur`, `focus` |
+| `setStyles(styles)`   | Update input field styles                                          |
+
+### 3D Secure
+
+| Method                                    | Description                                                             |
+| ----------------------------------------- | ----------------------------------------------------------------------- |
+| `fetchReferenceID(creditCardInfo)`        | Returns `Promise<string>`. Throws `ThreeDSError` on failure.            |
+| `challengeWithConfig(orderToken, config)` | Returns `Promise<ThreeDSResult>`. Never throws. Check `result.success`. |
+
 ### Types (`@boltpay/react-native/payments`)
 
-- `TokenResult` — `{ token, last4, bin, network, expiration, postal_code }`
+- `TokenResult` — `{ token?, last4?, bin?, network?, expiration?, postal_code? }`
 - `ThreeDSConfig` — `{ referenceID, jwtPayload, stepUpUrl }`
-- `ThreeDSResult` — `{ success, transactionId?, error? }`
+- `ThreeDSResult` — `{ success, error?: ThreeDSError }`
+- `ThreeDSError` — Error subclass with numeric `code` (1001–1010)
+- `CreditCardInfo` — `CreditCardId | TokenResult` (input for `fetchReferenceID`)
+- `EventType` — `'error' | 'valid' | 'blur' | 'focus'`
 - `ApplePayResult` — `{ token, billingContact?, boltReference? }`
 - `GooglePayResult` — `{ token, billingAddress? }`
 - `ApplePayConfig`, `GooglePayConfig` — Configuration for wallet buttons
+
+### Error Codes (`ThreeDSError`)
+
+| Code | Description                                      |
+| ---- | ------------------------------------------------ |
+| 1001 | Credit card id or token must be supplied         |
+| 1002 | Credit card id and token cannot both be supplied |
+| 1003 | Malformed credit card token                      |
+| 1004 | Order token does not exist                       |
+| 1005 | API response error during verification           |
+| 1006 | Verification not required                        |
+| 1007 | Setup error during verification                  |
+| 1008 | Authentication failed                            |
+| 1009 | Failed to create challenge or challenge failed   |
+| 1010 | Failed to get device data collection jwt         |
 
 ## Example App
 

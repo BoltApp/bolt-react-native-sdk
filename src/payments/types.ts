@@ -1,16 +1,50 @@
+// ── Credit Card Types ───────────────────────────────────────
+
 export interface TokenResult {
-  token: string;
-  last4: string;
-  bin: string;
-  network: string;
-  expiration: string;
-  postal_code: string;
+  token?: string;
+  last4?: string;
+  bin?: string;
+  expiration?: string;
+  postal_code?: string;
+  network?: string;
 }
 
-export interface CreditCardInfo {
-  token: string;
-  bin: string;
-  last4: string;
+export type EventCallback = ((e: string) => void) | (() => void);
+export type EventType = 'error' | 'valid' | 'blur' | 'focus';
+
+export interface EventListeners {
+  blur: EventCallback;
+  error: EventCallback;
+  focus: EventCallback;
+  valid: EventCallback;
+}
+
+// ── 3D Secure Types ─────────────────────────────────────────
+
+export type CreditCardId = { id: string; expiration: string };
+export type CreditCardInfo = CreditCardId | TokenResult;
+
+export const errorCodeToMessageMap = new Map<number, string>([
+  [1001, 'Credit card id or credit card token must be supplied'],
+  [1002, 'Credit card id and token cannot both be supplied'],
+  [1003, 'Malformed credit card token'],
+  [1004, 'Order token does not exist'],
+  [1005, 'API response error during verification'],
+  [1006, 'Verification not required'],
+  [1007, 'Setup error during verification'],
+  [1008, 'Authentication failed'],
+  [1009, 'Failed to create challenge or challenge failed'],
+  [1010, 'Failed to get device data collection jwt'],
+]);
+
+export class ThreeDSError extends Error {
+  code: number;
+
+  constructor(code: number) {
+    super(errorCodeToMessageMap.get(code) ?? '');
+    this.code = code;
+    this.message = errorCodeToMessageMap.get(code) ?? '';
+  }
 }
 
 export interface ThreeDSConfig {
@@ -21,9 +55,10 @@ export interface ThreeDSConfig {
 
 export interface ThreeDSResult {
   success: boolean;
-  transactionId?: string;
-  error?: string;
+  error?: ThreeDSError;
 }
+
+// ── Apple Pay Types ─────────────────────────────────────────
 
 export interface ApplePayResult {
   token: string;
@@ -55,6 +90,8 @@ export interface ApplePayConfig {
     amount: string;
   };
 }
+
+// ── Google Pay Types ────────────────────────────────────────
 
 export interface GooglePayResult {
   token: string;
