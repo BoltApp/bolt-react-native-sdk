@@ -1,3 +1,24 @@
+// ── Style Types ─────────────────────────────────────────────
+
+export type Styles = { version: 3 } & {
+  [property in `--bolt-${string}`]: string;
+};
+
+// ── Credit Card Validation Error Codes ──────────────────────
+
+export const validationErrorMap = new Map<number, string>([
+  [1000, 'Credit card number is required'],
+  [2000, 'Credit card number is invalid'],
+  [3000, 'Credit card type is not supported'],
+  [1001, 'Expiration date is required'],
+  [2001, 'Expiration date is invalid'],
+  [3001, 'Credit card is expired'],
+  [1002, 'CVV is required'],
+  [2002, 'CVV is invalid'],
+  [1003, 'Postal code is required'],
+  [2003, 'Postal code is invalid'],
+]);
+
 // ── Credit Card Types ───────────────────────────────────────
 
 export interface TokenResult {
@@ -24,7 +45,7 @@ export interface EventListeners {
 export type CreditCardId = { id: string; expiration: string };
 export type CreditCardInfo = CreditCardId | TokenResult;
 
-export const errorCodeToMessageMap = new Map<number, string>([
+export const threeDSErrorMap = new Map<number, string>([
   [1001, 'Credit card id or credit card token must be supplied'],
   [1002, 'Credit card id and token cannot both be supplied'],
   [1003, 'Malformed credit card token'],
@@ -41,9 +62,9 @@ export class ThreeDSError extends Error {
   code: number;
 
   constructor(code: number) {
-    super(errorCodeToMessageMap.get(code) ?? '');
+    super(threeDSErrorMap.get(code) ?? '');
     this.code = code;
-    this.message = errorCodeToMessageMap.get(code) ?? '';
+    this.message = threeDSErrorMap.get(code) ?? '';
   }
 }
 

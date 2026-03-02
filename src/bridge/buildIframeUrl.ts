@@ -31,7 +31,10 @@ export const buildIframeUrl = (params: IframeUrlParams): string => {
   url.searchParams.set('publishableKey', publishableKey);
   url.searchParams.set('l', language);
   url.searchParams.set('transport', 'rn-webview');
-  url.searchParams.set('checkoutPageID', crypto.randomUUID());
+  url.searchParams.set(
+    'checkoutPageID',
+    Math.random().toString(36).slice(2) + Date.now().toString(36)
+  );
 
   if (merchantClientId) {
     url.searchParams.set('mcid', merchantClientId);

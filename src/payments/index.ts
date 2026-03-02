@@ -1,5 +1,8 @@
 export { CreditCard } from './CreditCard';
-export type { CreditCardController } from './useCreditCardController';
+export type {
+  CreditCardController,
+  CreditCardControllerOptions,
+} from './useCreditCardController';
 export type { CreditCardComponentProps } from './CreditCardComponent';
 
 export { useThreeDSecure } from './useThreeDSecure';
@@ -11,9 +14,10 @@ export type { ApplePayProps } from './ApplePay';
 export { GoogleWallet } from './GoogleWallet';
 export type { GoogleWalletProps } from './GoogleWallet';
 
-export { ThreeDSError, errorCodeToMessageMap } from './types';
+export { ThreeDSError, threeDSErrorMap } from './types';
 
 export type {
+  Styles,
   TokenResult,
   EventType,
   EventCallback,

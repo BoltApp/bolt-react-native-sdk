@@ -145,22 +145,52 @@ import { GoogleWallet } from '@boltpay/react-native/payments';
 />
 ```
 
+### 5. Styling
+
+Apply global styles to all Bolt components, or per-element styles at creation time. Uses the v3 CSS custom property format (`--bolt-{target}-{property}`). See [Bolt styling docs](https://help.bolt.com/products/checkout/embeddable-checkout/api-implementation/styling/style-components-v3/) for the full list of tokens.
+
+```typescript
+// Global styles — applies to all elements
+bolt.configureOnPageStyles({
+  version: 3,
+  '--bolt-input-fontFamily': 'Inter, sans-serif',
+  '--bolt-input-fontSize': '16px',
+  '--bolt-input-borderRadius': '8px',
+});
+
+// Per-element styles — passed at creation time
+const cc = CreditCard.useController({
+  styles: {
+    version: 3,
+    '--bolt-input-borderColor': '#ccc',
+    '--bolt-input_focus-borderColor': '#5A31F4',
+  },
+});
+
+// Update styles after creation
+cc.setStyles({
+  version: 3,
+  '--bolt-input-backgroundColor': '#f9f9f9',
+});
+```
+
 ## API Reference
 
 ### Root (`@boltpay/react-native`)
 
-| Export         | Description                                                               |
-| -------------- | ------------------------------------------------------------------------- |
-| `Bolt`         | Client class. Takes `{ publishableKey, environment?, language? }`         |
-| `BoltProvider` | React context provider. Wrap your app with `<BoltProvider client={bolt}>` |
-| `useBolt()`    | Hook to access the Bolt client from any component                         |
+| Export         | Description                                                                         |
+| -------------- | ----------------------------------------------------------------------------------- |
+| `Bolt`         | Client class. Takes `{ publishableKey, environment?, language? }`                   |
+| `BoltProvider` | React context provider. Wrap your app with `<BoltProvider client={bolt}>`           |
+| `useBolt()`    | Hook to access the Bolt client from any component                                   |
+| `bolt.configureOnPageStyles(styles)` | Set global v3 styles applied to all elements                      |
 
 ### Payments (`@boltpay/react-native/payments`)
 
 | Export                       | Description                                                               |
 | ---------------------------- | ------------------------------------------------------------------------- |
 | `CreditCard.Component`       | WebView-based credit card input                                           |
-| `CreditCard.useController()` | Returns a controller with `tokenize()`, `on()`, and `setStyles()`         |
+| `CreditCard.useController(options?)` | Returns a controller with `tokenize()`, `on()`, and `setStyles()` |
 | `useThreeDSecure()`          | Hook returning `{ Component, fetchReferenceID(), challengeWithConfig() }` |
 | `ApplePay`                   | Native Apple Pay button (iOS only, renders nothing on Android)            |
 | `GoogleWallet`               | Native Google Pay button (Android only, renders nothing on iOS)           |
@@ -182,6 +212,7 @@ import { GoogleWallet } from '@boltpay/react-native/payments';
 
 ### Types (`@boltpay/react-native/payments`)
 
+- `Styles` — `{ version: 3 } & { [--bolt-*]: string }` (v3 CSS custom properties)
 - `TokenResult` — `{ token?, last4?, bin?, network?, expiration?, postal_code? }`
 - `ThreeDSConfig` — `{ referenceID, jwtPayload, stepUpUrl }`
 - `ThreeDSResult` — `{ success, error?: ThreeDSError }`

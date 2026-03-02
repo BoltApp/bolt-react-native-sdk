@@ -1,3 +1,5 @@
+import type { Styles } from '../payments/types';
+
 export interface BoltConfig {
   publishableKey: string;
   environment?: 'production' | 'sandbox' | 'staging';
@@ -14,6 +16,7 @@ export class Bolt {
   public readonly publishableKey: string;
   public readonly baseUrl: string;
   public readonly language: string;
+  private onPageStyles?: Styles;
 
   constructor(config: BoltConfig) {
     if (!config.publishableKey) {
@@ -25,5 +28,13 @@ export class Bolt {
       ENVIRONMENT_URLS[config.environment ?? 'production'] ??
       ENVIRONMENT_URLS.production!;
     this.language = config.language ?? 'en';
+  }
+
+  configureOnPageStyles(styles: Styles): void {
+    this.onPageStyles = styles;
+  }
+
+  getOnPageStyles(): Styles | undefined {
+    return this.onPageStyles;
   }
 }
