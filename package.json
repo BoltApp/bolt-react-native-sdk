@@ -1,7 +1,9 @@
 {
   "name": "@boltpay/react-native",
-  "version": "0.1.0",
+  "private": false,
+  "version": "0.0.1",
   "description": "Bolt React Native SDK",
+  "license": "MIT",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -19,6 +21,7 @@
   },
   "files": [
     "lib",
+    "src",
     "android",
     "ios",
     "cpp",
