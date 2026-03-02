@@ -1,0 +1,39 @@
+name: Setup Node & Yarn
+description: Enable Corepack, setup Node.js, install dependencies with caching
+
+inputs:
+  registry-url:
+    description: npm registry URL (set for publish steps)
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Enable Corepack
+      shell: bash
+      run: corepack enable
+
+    - name: Setup Node.js Environment
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: ".nvmrc"
+        registry-url: ${{ inputs.registry-url || '' }}
+
+    - name: Install yarn with Corepack
+      shell: bash
+      run: yarn -v
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          node_modules
+          .yarn/cache
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-deps-
+
+    - name: Install dependencies
+      shell: bash
+      run: yarn install

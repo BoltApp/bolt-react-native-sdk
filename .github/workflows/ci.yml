@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  workflow_call:
+
+jobs:
+  ci:
+    name: Lint, Typecheck, Test, Build
+    runs-on: ubuntu-24.04-16-cores
+    env:
+      TERM: "xterm-256color"
+      FORCE_COLOR: 1
+      NODE_OPTIONS: "--max-old-space-size=6144"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Run lint
+        run: yarn lint
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Run tests
+        run: yarn test
+
+      - name: Unit Test Report
+        uses: BoltApp/test-reporter@v2
+        if: success() || failure()
+        with:
+          name: "Unit Tests Report"
+          path: ./test-results/junit.xml
+          reporter: jest-junit
+          use-actions-summary: false
+
+      - name: Build
+        run: yarn prepare
