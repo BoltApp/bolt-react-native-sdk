@@ -6,7 +6,7 @@ on:
 
 jobs:
   ci:
-    # Skip if the push is a release commit (avoid infinite loop)
+    # Skip if the push is a release commit (to avoid infinite loop)
     if: "!startsWith(github.event.head_commit.message, 'chore: release')"
     uses: ./.github/workflows/ci.yml
 
