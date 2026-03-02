@@ -5,57 +5,5 @@ on:
   pull_request:
 
 jobs:
-  build-and-test:
-    name: Unit Tests
-    runs-on: ubuntu-24.04-16-cores
-    env:
-      TERM: "xterm-256color"
-      FORCE_COLOR: 1
-      NODE_OPTIONS: "--max-old-space-size=6144"
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node.js Environment
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: ".nvmrc"
-
-      - name: Install yarn with Corepack
-        run: yarn -v
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules
-            .yarn/cache
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-deps-
-
-      - name: Install dependencies
-        run: yarn install
-
-      - name: Run lint
-        run: yarn lint
-
-      - name: Typecheck
-        run: yarn typecheck
-
-      - name: Run tests
-        run: yarn test
-
-      - name: Unit Test Report
-        uses: BoltApp/test-reporter@v2
-        if: success() || failure()
-        with:
-          name: "Unit Tests Report"
-          path: ./test-results/junit.xml
-          reporter: jest-junit
-          use-actions-summary: false
-
-      - name: Run prepare build
-        run: yarn prepare
+  ci:
+    uses: ./.github/workflows/ci.yml

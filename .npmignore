@@ -1,0 +1,31 @@
+# Source & development
+src/
+example/
+.github/
+.yarn/
+.claude/
+
+# Config files
+tsconfig.json
+tsconfig.build.json
+bob.config.js
+jest.config.js
+eslint.config.mjs
+.prettierrc
+.prettierignore
+lefthook.yml
+commitlint.config.js
+.release-it.json
+.editorconfig
+turbo.json
+.nvmrc
+.watchmanconfig
+.yarnrc.yml
+
+# Test output
+test-results/
+coverage/
+
+# Misc
+*.log
+.DS_Store
