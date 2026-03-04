@@ -75,7 +75,9 @@ export const useCreditCardController = (
             JSON.stringify({
               type: 'SetConfig',
               config: {
-                styles: optionsRef.current?.styles,
+                styles: optionsRef.current?.styles
+                  ? { version: 3, ...optionsRef.current.styles }
+                  : undefined,
                 onPageStyles: bolt.getOnPageStyles(),
               },
             })
@@ -198,7 +200,9 @@ export const useCreditCardController = (
 
   const setStyles = useCallback(
     (styles: Styles) => {
-      dispatcher.sendMessage(JSON.stringify({ type: 'SetStyles', styles }));
+      dispatcher.sendMessage(
+        JSON.stringify({ type: 'SetStyles', styles: { version: 3, ...styles } })
+      );
     },
     [dispatcher]
   );

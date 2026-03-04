@@ -30,7 +30,6 @@ const bolt = new Bolt({
 
 // Global styles applied to all Bolt components
 bolt.configureOnPageStyles({
-  'version': 3,
   '--bolt-input-fontFamily': 'System',
   '--bolt-input-fontSize': '16px',
   '--bolt-input-borderRadius': '8px',
@@ -42,7 +41,6 @@ const CheckoutScreen = () => {
   // Per-element styles override global onPageStyles
   const cc = CreditCard.useController({
     styles: {
-      'version': 3,
       '--bolt-input-backgroundColor': '#fafafa',
     },
   });

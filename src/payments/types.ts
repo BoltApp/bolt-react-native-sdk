@@ -1,6 +1,6 @@
 // ── Style Types ─────────────────────────────────────────────
 
-export type Styles = { version: 3 } & {
+export type Styles = {
   [property in `--bolt-${string}`]: string;
 };
 
