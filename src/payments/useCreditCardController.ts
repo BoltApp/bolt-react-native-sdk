@@ -78,7 +78,10 @@ export const useCreditCardController = (
                 styles: optionsRef.current?.styles
                   ? { version: 3, ...optionsRef.current.styles }
                   : undefined,
-                onPageStyles: bolt.getOnPageStyles(),
+                onPageStyles: (() => {
+                  const onPageStyles = bolt.getOnPageStyles();
+                  return onPageStyles ? { version: 3, ...onPageStyles } : undefined;
+                })(),
               },
             })
           );
