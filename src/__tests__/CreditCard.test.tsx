@@ -55,7 +55,6 @@ describe('Bolt', () => {
   it('should store and return onPageStyles', () => {
     const bolt = new Bolt({ publishableKey: 'pk_test_123' });
     const styles: Styles = {
-      'version': 3,
       '--bolt-input-fontFamily': 'Inter, sans-serif',
       '--bolt-input-fontSize': '16px',
     };
@@ -66,11 +65,9 @@ describe('Bolt', () => {
   it('should overwrite onPageStyles when called again', () => {
     const bolt = new Bolt({ publishableKey: 'pk_test_123' });
     bolt.configureOnPageStyles({
-      'version': 3,
       '--bolt-input-fontFamily': 'Arial',
     });
     const newStyles: Styles = {
-      'version': 3,
       '--bolt-input-fontFamily': 'Inter',
     };
     bolt.configureOnPageStyles(newStyles);

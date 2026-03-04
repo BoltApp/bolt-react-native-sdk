@@ -152,7 +152,6 @@ Apply global styles to all Bolt components, or per-element styles at creation ti
 ```typescript
 // Global styles — applies to all elements
 bolt.configureOnPageStyles({
-  version: 3,
   '--bolt-input-fontFamily': 'Inter, sans-serif',
   '--bolt-input-fontSize': '16px',
   '--bolt-input-borderRadius': '8px',
@@ -161,7 +160,6 @@ bolt.configureOnPageStyles({
 // Per-element styles — passed at creation time
 const cc = CreditCard.useController({
   styles: {
-    version: 3,
     '--bolt-input-borderColor': '#ccc',
     '--bolt-input_focus-borderColor': '#5A31F4',
   },
@@ -169,7 +167,6 @@ const cc = CreditCard.useController({
 
 // Update styles after creation
 cc.setStyles({
-  version: 3,
   '--bolt-input-backgroundColor': '#f9f9f9',
 });
 ```
@@ -178,22 +175,22 @@ cc.setStyles({
 
 ### Root (`@boltpay/react-native`)
 
-| Export         | Description                                                                         |
-| -------------- | ----------------------------------------------------------------------------------- |
-| `Bolt`         | Client class. Takes `{ publishableKey, environment?, language? }`                   |
-| `BoltProvider` | React context provider. Wrap your app with `<BoltProvider client={bolt}>`           |
-| `useBolt()`    | Hook to access the Bolt client from any component                                   |
-| `bolt.configureOnPageStyles(styles)` | Set global v3 styles applied to all elements                      |
+| Export                               | Description                                                               |
+| ------------------------------------ | ------------------------------------------------------------------------- |
+| `Bolt`                               | Client class. Takes `{ publishableKey, environment?, language? }`         |
+| `BoltProvider`                       | React context provider. Wrap your app with `<BoltProvider client={bolt}>` |
+| `useBolt()`                          | Hook to access the Bolt client from any component                         |
+| `bolt.configureOnPageStyles(styles)` | Set global v3 styles applied to all elements                              |
 
 ### Payments (`@boltpay/react-native/payments`)
 
-| Export                       | Description                                                               |
-| ---------------------------- | ------------------------------------------------------------------------- |
-| `CreditCard.Component`       | WebView-based credit card input                                           |
-| `CreditCard.useController(options?)` | Returns a controller with `tokenize()`, `on()`, and `setStyles()` |
-| `useThreeDSecure()`          | Hook returning `{ Component, fetchReferenceID(), challengeWithConfig() }` |
-| `ApplePay`                   | Native Apple Pay button (iOS only, renders nothing on Android)            |
-| `GoogleWallet`               | Native Google Pay button (Android only, renders nothing on iOS)           |
+| Export                               | Description                                                               |
+| ------------------------------------ | ------------------------------------------------------------------------- |
+| `CreditCard.Component`               | WebView-based credit card input                                           |
+| `CreditCard.useController(options?)` | Returns a controller with `tokenize()`, `on()`, and `setStyles()`         |
+| `useThreeDSecure()`                  | Hook returning `{ Component, fetchReferenceID(), challengeWithConfig() }` |
+| `ApplePay`                           | Native Apple Pay button (iOS only, renders nothing on Android)            |
+| `GoogleWallet`                       | Native Google Pay button (Android only, renders nothing on iOS)           |
 
 ### Credit Card Controller
 
@@ -212,7 +209,7 @@ cc.setStyles({
 
 ### Types (`@boltpay/react-native/payments`)
 
-- `Styles` — `{ version: 3 } & { [--bolt-*]: string }` (v3 CSS custom properties)
+- `Styles` — `{ [--bolt-*]: string }` (v3 CSS custom properties)
 - `TokenResult` — `{ token?, last4?, bin?, network?, expiration?, postal_code? }`
 - `ThreeDSConfig` — `{ referenceID, jwtPayload, stepUpUrl }`
 - `ThreeDSResult` — `{ success, error?: ThreeDSError }`
