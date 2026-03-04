@@ -15,7 +15,6 @@ jobs:
     needs: ci
     runs-on: ubuntu-24.04-16-cores
     permissions:
-      id-token: write
       contents: write
     steps:
       - uses: actions/checkout@v4
@@ -45,5 +44,5 @@ jobs:
 
       - name: Publish to npm
         run: npm publish --access public
-        # env:
-        #   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
