@@ -1,6 +1,6 @@
 {
   "name": "@boltpay/react-native",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Bolt React Native SDK",
   "license": "MIT",
   "main": "./lib/module/index.js",
