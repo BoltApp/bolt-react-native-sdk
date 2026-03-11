@@ -106,7 +106,50 @@ function CheckoutScreen() {
 }
 ```
 
-### 3. Apple Pay (iOS)
+### 3. 3DS with Stored Card ID
+
+If you've already added a card via Bolt's Add Card API and have a `creditCardID`, you can perform 3DS without re-tokenizing:
+
+```typescript
+import { useThreeDSecure } from '@boltpay/react-native/payments';
+
+function StoredCardPayment() {
+  const threeDSecure = useThreeDSecure();
+
+  const handlePayment = async (creditCardId: string, expiration: string) => {
+    // Fetch 3DS reference using stored card ID
+    const referenceID = await threeDSecure.fetchReferenceID({
+      id: creditCardId,
+      expiration,
+    });
+
+    // Create payment on your backend with the 3DS reference
+    const paymentResponse = await yourApi.createPayment({
+      creditCardId,
+      referenceID,
+    });
+
+    // Handle 3DS challenge if required
+    if (paymentResponse['.tag'] === 'three_ds_required') {
+      const result = await threeDSecure.challengeWithConfig(
+        paymentResponse.id,
+        {
+          referenceID,
+          jwtPayload: paymentResponse.jwt_payload,
+          stepUpUrl: paymentResponse.step_up_url,
+        }
+      );
+      if (!result.success) {
+        console.error(result.error?.message);
+      }
+    }
+  };
+
+  return <threeDSecure.Component />;
+}
+```
+
+### 4. Apple Pay (iOS)
 
 ```typescript
 import { ApplePay } from '@boltpay/react-native/payments';
@@ -125,7 +168,7 @@ import { ApplePay } from '@boltpay/react-native/payments';
 />
 ```
 
-### 4. Google Pay (Android)
+### 5. Google Pay (Android)
 
 ```typescript
 import { GoogleWallet } from '@boltpay/react-native/payments';
@@ -145,7 +188,7 @@ import { GoogleWallet } from '@boltpay/react-native/payments';
 />
 ```
 
-### 5. Styling
+### 6. Styling
 
 Apply global styles to all Bolt components, or per-element styles at creation time. Uses the v3 CSS custom property format (`--bolt-{target}-{property}`). See [Bolt styling docs](https://help.bolt.com/products/checkout/embeddable-checkout/api-implementation/styling/style-components-v3/) for the full list of tokens.
 
@@ -204,7 +247,7 @@ cc.setStyles({
 
 | Method                                    | Description                                                             |
 | ----------------------------------------- | ----------------------------------------------------------------------- |
-| `fetchReferenceID(creditCardInfo)`        | Returns `Promise<string>`. Throws `ThreeDSError` on failure.            |
+| `fetchReferenceID(creditCardInfo)`        | Accepts `TokenResult` or `CreditCardId`. Returns `Promise<string>`. Throws `ThreeDSError`. |
 | `challengeWithConfig(orderToken, config)` | Returns `Promise<ThreeDSResult>`. Never throws. Check `result.success`. |
 
 ### Types (`@boltpay/react-native/payments`)
@@ -214,6 +257,7 @@ cc.setStyles({
 - `ThreeDSConfig` — `{ referenceID, jwtPayload, stepUpUrl }`
 - `ThreeDSResult` — `{ success, error?: ThreeDSError }`
 - `ThreeDSError` — Error subclass with numeric `code` (1001–1010)
+- `CreditCardId` — `{ id: string, expiration: string }` (from Bolt's Add Card API)
 - `CreditCardInfo` — `CreditCardId | TokenResult` (input for `fetchReferenceID`)
 - `EventType` — `'error' | 'valid' | 'blur' | 'focus'`
 - `ApplePayResult` — `{ token, billingContact?, boltReference? }`

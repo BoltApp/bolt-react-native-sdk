@@ -21,7 +21,8 @@ export interface UseThreeDSecureReturn {
 
   /**
    * Fetch a 3DS reference ID by performing device data collection.
-   * This should be called after tokenization but before creating the payment.
+   * Accepts either a TokenResult (from tokenize()) or a CreditCardId
+   * (from Bolt's Add Card API — { id, expiration }).
    * THROWS ThreeDSError on failure — matches the web SDK behavior.
    */
   fetchReferenceID: (creditCardInfo: CreditCardInfo) => Promise<string>;
