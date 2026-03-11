@@ -7,32 +7,90 @@
 | Phase 1: Infrastructure & Configuration | ✅ Complete                                                                |
 | Phase 2: WebView Bridge (2.1-2.4)       | ✅ Complete                                                                |
 | Phase 2.5: Storm-Side Changes           | [ ] Not started (external dependency — requires changes to storm codebase) |
-| Phase 3: Credit Card Component          | ✅ Complete (core messages; `setPort` and field events listener pending)   |
+| Phase 3: Credit Card Component          | ✅ Complete (core messages + field events; `setPort` RPC pending)          |
 | Phase 4: 3D Secure Component            | ✅ Complete                                                                |
 | Phase 5: Digital Wallets                | ✅ Code written — needs physical device testing                            |
-| Phase 6: Tabbed Integration & QA        | Partial — example app built, E2E/device testing pending                    |
+| Phase 6: Integration & QA               | Partial — example app built, E2E/device testing pending                    |
+| Phase 7: End-to-End Flows               | [ ] Not started — new phase based on updated requirements                  |
 | File structure                          | ✅ All 24 planned files created                                            |
 | TypeScript                              | ✅ Compiles cleanly (strict mode)                                          |
-| Unit tests                              | ✅ 17 tests passing                                                        |
+| Unit tests                              | ✅ 54 tests passing                                                        |
 
 **Remaining work:**
 
 - Storm-side changes (3 files in `libs/base/`) — external dependency, not in this repo
-- Credit Card `setPort` RPC channel and field event forwarding (`Focus`, `Blur`, `Valid`, `Error`)
+- Credit Card `setPort` RPC channel
 - E2E verification (bridge smoke test, tokenization, 3DS challenge)
 - Physical device testing for Apple Pay and Google Pay
 - App store compliance review
+- **Phase 7 work** — wallet management, 3DS bootstrap, Tokenizer Proxy compatibility, add-card-from-wallet flows
 
 ---
 
 ## Context
 
-**First customer:** Tabbed (React Native app)
-**Scope:** Credit Card inputs, 3D Secure, Apple Pay, Google Pay — **no auth/SSO** (Tabbed uses their own login, calling Bolt Connect shopper login endpoint directly)
+**Scope:** Credit Card inputs, 3D Secure, Apple Pay, Google Pay — **no auth/SSO** (merchant uses their own login, calling Bolt Merchant Shopper Login endpoint directly)
 **Package:** `@boltpay/react-native` with sub-exports (`/payments`, future `/auth`)
 **Approach:** Hybrid — WebView bridge for PCI-compliant flows (credit card, 3DS), native TurboModules for wallets (Apple Pay/Google Pay)
 
 Reference: Alan Thai's scoping doc (Feb 2026) defines the API shape, phases, and estimates.
+
+### Expected Integration Pattern
+
+The SDK is designed for merchants who use their own authentication (no Bolt SSO) and maintain their own UI (no Bolt webview checkout). The SDK provides only the PCI-compliant components (card input, 3DS, wallet card-addition).
+
+**Typical integration flow:**
+
+1. **User login & account setup:** Merchant authenticates the shopper, then calls the Bolt **Merchant Shopper Login** endpoint (creates the shopper in Bolt if they don't exist). Exchanges the authorization code via **OAuth Authorize → OAuth Token** to get an access token scoped for card management.
+
+2. **Card addition & 3DS bootstrap:** Using the access token, the merchant **adds a credit card** via Bolt APIs and receives a `creditCardID`. Optionally runs a **$1 authorization with 3DS** to bootstrap liability shift early (fetch 3DS reference → V3 Payments $1 auth → void immediately), since Bolt's $0 add-card auth does not currently support 3DS.
+
+3. **Order authorizations:** Merchant authorizes payments using either:
+   - **Tokenizer Proxy** (`POST /v1/tokenizer/proxy`) — proxies payment to the merchant's existing processor (e.g., Stripe). Takes a Bolt token, exchanges it for the raw PAN in a PCI-compliant environment, and forwards to the processor.
+   - **V3 Payments** (`POST /v3/payments`) — authorizes directly through Bolt using a stored `creditCardID` or new token.
+
+4. **Capture & settlement:** Merchant finalizes payment via `POST /v3/payments/{id}` or through their existing processor.
+
+**Three shopper flows:**
+
+- **Recognized (new to app):** Opens app → enters phone → OTP on Bolt network → details populate → shopper completes action → Bolt processes payment
+- **Unrecognized:** Opens app → enters card details → shopper completes action → Bolt processes payment (creates Bolt profile)
+- **Recognized (returning):** Opens app → uses stored card (or adds new) → Bolt processes and updates profile
+
+### Bolt API Surface Per Requirements
+
+| API Endpoint                                 | Purpose                                                                | SDK Responsibility                           |
+| -------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------- |
+| Merchant Shopper Login                       | Create/login shopper in Bolt                                           | Merchant backend (not SDK)                   |
+| `POST /v3/oauth/token`                       | Get access token for card management                                   | Merchant backend (not SDK)                   |
+| `GET /v3/account`                            | Fetch saved cards & addresses (`credit_card_id`, `shopper_address_id`) | Merchant backend (not SDK)                   |
+| `POST /v3/payments`                          | Authorize payment (with saved `credit_card_id` or new token)           | Merchant backend; SDK provides 3DS reference |
+| `POST /v3/payments/{id}`                     | Finalize/capture payment                                               | Merchant backend (not SDK)                   |
+| `POST /v3/guest/payments`                    | Guest payment (no Bolt account)                                        | Merchant backend (not SDK)                   |
+| Void Transaction API                         | Void $1 3DS bootstrap auth                                             | Merchant backend (not SDK)                   |
+| `POST /v1/tokenizer/proxy` (Tokenizer Proxy) | Proxy payment to merchant's existing processor with Bolt token         | Merchant backend (not SDK)                   |
+| Credit card tokenization                     | PCI-compliant card input + token                                       | **SDK (WebView bridge)**                     |
+| 3DS reference + challenge                    | `fetchReferenceID()` + `challengeWithConfig()`                         | **SDK (WebView bridge)**                     |
+| Apple Pay card addition                      | Add card from Apple Wallet to Bolt account                             | **SDK (native TurboModule)**                 |
+| Google Pay card addition                     | Add card from Google Wallet to Bolt account                            | **SDK (native TurboModule)**                 |
+
+### Storm Embedded SDK vs. This SDK — Gap Analysis
+
+The storm embedded SDK (web) exposes these elements. Items marked ❌ are not in our RN SDK but may be needed:
+
+| Storm Element                         | Purpose                                 | RN SDK Status                                                    |
+| ------------------------------------- | --------------------------------------- | ---------------------------------------------------------------- |
+| `credit_card_input`                   | PCI card input + tokenization           | ✅ Have it                                                       |
+| `3d-secure`                           | 3DS challenges                          | ✅ Have it                                                       |
+| `add-card-from-apple-wallet`          | Add card from Apple Pay to Bolt wallet  | ⚠️ Reframe needed (see Phase 7)                                  |
+| `add-card-from-google-wallet`         | Add card from Google Pay to Bolt wallet | ⚠️ Reframe needed (see Phase 7)                                  |
+| `login_modal`                         | Email → OTP/passkey auth                | ❌ Not in scope (app owns auth)                                  |
+| `payment-selector`                    | Browse saved cards + add new            | ❌ Not in scope (app builds own UI using `GET /v3/account` data) |
+| `shopper-session`                     | Detect returning shopper                | ❌ Not in scope (app manages sessions)                           |
+| `shopper-address` / `shopper-payment` | Edit saved addresses/cards              | ❌ Not in scope (app builds own UI)                              |
+| `login-status`                        | Display login state + logout            | ❌ Not in scope (app owns auth UI)                               |
+| `account_checkbox`                    | Consent for Bolt account creation       | ❌ Not in scope (app handles consent)                            |
+| `apm-credit-input`                    | Alternative payment methods             | ❌ Not needed currently                                          |
 
 ### Why WebViews for Credit Card & 3DS
 
@@ -114,7 +172,7 @@ bolt-react-native-sdk/
 │   │   ├── GooglePayModule.kt            # PaymentsClient TurboModule
 │   │   └── NetworkingModule.kt           # Native HTTP TurboModule
 ├── example/src/
-│   └── App.tsx                           # Tabbed-style checkout demo
+│   └── App.tsx                           # Checkout demo app
 └── package.json
 ```
 
@@ -185,22 +243,31 @@ function CheckoutScreen() {
 }
 ```
 
-### Apple Pay / Google Wallet
+### Apple Pay / Google Wallet (Add Card to Bolt Account)
+
+Storm's web SDK names these `add-card-from-apple-wallet` and `add-card-from-google-wallet` — they are primarily for **adding a card to the shopper's Bolt wallet**, not one-shot payments. The token returned is used to call Bolt's add-card API, which stores the card and returns a `creditCardID` for future use.
+
+Per requirements, the flow is: tap Apple Pay → get token + billing contact (including email) → merchant backend calls Bolt add-card API → Bolt creates account (using email from Apple Pay response) and stores card → returns `creditCardID`.
 
 ```typescript
 import { ApplePay, GoogleWallet } from '@boltpay/react-native/payments';
 
-function WalletScreen() {
+function AddCardScreen() {
+  const handleApplePay = async (result) => {
+    // result.token — Apple Pay payment token
+    // result.billingContact — includes email for Bolt account creation
+    // Merchant backend: call Bolt add-card API with this token
+    // Bolt returns creditCardID for future payments
+    await merchantApi.addCardFromApplePay(result);
+  };
+
   return (
     <>
-      <ApplePay
-        onComplete={(result) => {
-          /* result.token, result.billingContact */
-        }}
-      />
+      <ApplePay onComplete={handleApplePay} />
       <GoogleWallet
         onComplete={(result) => {
-          /* result.token, result.billingAddress */
+          // Same pattern — add card to Bolt wallet
+          merchantApi.addCardFromGooglePay(result);
         }}
       />
     </>
@@ -318,7 +385,7 @@ Implements the controller pattern from Alan's spec with message flow:
 | Frame → Host | `CreditCard.FrameInitialized`     | WebView content loaded    | ✅          |
 | Host → Frame | `SetConfig`                       | After init, sends options | ✅          |
 | Host → Frame | `setPort` (with virtual port)     | RPC channel for auth      | [ ]         |
-| Frame → Host | `Focus`, `Blur`, `Valid`, `Error` | Field events              | [ ]         |
+| Frame → Host | `Focus`, `Blur`, `Valid`, `Error` | Field events              | ✅          |
 | Frame → Host | `SetIFrameHeight`                 | Auto-size WebView height  | ✅          |
 | Host → Frame | `GetToken`                        | When `tokenize()` called  | ✅          |
 | Frame → Host | `GetTokenReply`                   | Tokenization result       | ✅          |
@@ -330,9 +397,13 @@ Implements the controller pattern from Alan's spec with message flow:
 
 WebView-based — loads `connect.bolt.com/src/iframes/3d-secure/index.html`. The 3DS element uses Cardinal Commerce for device data collection and step-up challenges.
 
-### Phase 5: Digital Wallets — Native TurboModules (2-8 weeks) — CODE WRITTEN, NEEDS DEVICE TESTING
+### Phase 5: Digital Wallets — Native TurboModules (2-8 weeks) — CODE WRITTEN, NEEDS DEVICE TESTING + REFRAME
 
 Apple Pay and Google Pay cannot use WebViews — they require native platform APIs.
+
+**Important reframe:** Per requirements, Apple/Google Pay are used to **add a card to the Bolt wallet** (not as one-shot payment buttons). The flow is: present native Pay sheet → receive payment token + billing contact → merchant backend sends to Bolt add-card API → Bolt stores card and returns `creditCardID`. The email from the Apple Pay response is used for Bolt account creation.
+
+**Webview for Apple Pay (alternative path):** Bolt is building a URL-based Apple Pay session (target: available already) that initializes the Apple Pay sheet via a webview and returns the payload. This could be an alternative to the native TurboModule if native PassKit proves problematic. **Open question:** do we need both approaches or can we pick one?
 
 - ✅ `src/native/NativeApplePay.ts` — TurboModule spec
 - ✅ `src/native/NativeGooglePay.ts` — TurboModule spec
@@ -340,18 +411,145 @@ Apple Pay and Google Pay cannot use WebViews — they require native platform AP
 - ✅ `src/payments/GoogleWallet.tsx` — React component wrapping native module
 - ✅ `ios/ApplePayModule.swift` — PassKit implementation (canMakePayments, requestPayment, merchant validation, tokenization)
 - ✅ `android/.../GooglePayModule.kt` — PaymentsClient implementation (isReadyToPay, requestPayment, tokenization)
+- [ ] Verify token format is compatible with Bolt's add-card API (not just direct payment)
+- [ ] Ensure billing contact fields (especially email) are requested and returned
 - [ ] Test Apple Pay on physical iPhone with sandbox account
 - [ ] Test Google Pay on physical Android device with test account
 - [ ] App store compliance review for wallet payment provisioning
+- [ ] Evaluate webview Apple Pay alternative vs native TurboModule
 
-### Phase 6: Tabbed Integration & QA (1-3 weeks) — PARTIALLY COMPLETE
+### Phase 6: Integration & QA (1-3 weeks) — PARTIALLY COMPLETE
 
-- ✅ Build "Tabbed-style" checkout flow in `example/` app
+- ✅ Build checkout flow in `example/` app
 - [ ] Test complete payment flow: card entry → tokenize → 3DS → payment
 - [ ] Test Apple Pay and Google Pay on real devices
 - [ ] Test error states (invalid card, network timeout, 3DS failure)
 - [ ] Regression testing on both iOS and Android
 - [ ] App store compliance review preparation
+
+### Phase 7: End-to-End Flows — NOT STARTED
+
+This phase addresses the full integration requirements beyond basic card input/tokenization, based on the updated requirements doc and the March 5th integration call.
+
+#### 7.1 — 3DS Bootstrap Flow (SDK + Merchant Backend Coordination)
+
+Per requirements, 3DS authentication is needed at card-addition time to shift liability early. The current design:
+
+1. **SDK:** `cc.tokenize()` → get token
+2. **SDK:** `threeDSecure.fetchReferenceID({ token, bin, last4 })` → get 3DS reference
+3. **Merchant backend:** Call `POST /v3/payments` with token + 3DS reference for **$1 authorization**
+4. **SDK:** If 3DS challenge required → `threeDSecure.challengeWithConfig(paymentId, config)` → present challenge
+5. **Merchant backend:** Call **Void Transaction API** to void the $1 auth
+
+**SDK impact:** Our existing `fetchReferenceID()` and `challengeWithConfig()` already support this. The SDK work is ensuring the example app demonstrates this flow and that the 3DS component can be triggered independently of a "real" payment (i.e., for a $1 bootstrap auth).
+
+**Open question (optimization):** Can Bolt support 3DS at add-card time ($0 auth)? Currently confirmed that $0 auth does not include 3DS. If this changes, the $1 bootstrap flow becomes unnecessary.
+
+**Open question (optimization):** Can the void of the $1 auth be moved to an async background process to reduce latency by ~1.5-2 seconds?
+
+#### 7.2 — Apple Pay / Google Pay as Card Addition
+
+Storm's web elements (`add-card-from-apple-wallet`, `add-card-from-google-wallet`) are designed for adding cards to the Bolt wallet, not one-shot payments. Our native TurboModules need to support this pattern:
+
+- **Ensure billing contact fields are collected** — especially email (used for Bolt account creation when shopper has no Bolt account). Apple Pay's `PKPaymentRequest.requiredBillingContactFields` must include `.emailAddress`.
+- **Token format:** Verify the Apple Pay / Google Pay payment token we return is compatible with Bolt's add-card API endpoint (not just direct payment authorization).
+- **`onComplete` result shape** should include: `{ token, billingContact: { email, name, phone, postalAddress } }` (Apple Pay) and equivalent for Google Pay.
+- **Bolt account creation:** When a shopper pays with Apple Pay for the first time, Bolt generates an account using the email from the Apple Pay response.
+
+**Deliverable targets from requirements doc:**
+
+- Apple Pay card addition: 9/22 target
+- Webview for Apple Pay (URL-based session): 9/15 target
+- Google Pay: TBD — is Apple Pay enough? (merchant to confirm)
+
+#### 7.3 — Tokenizer Proxy Compatibility
+
+The Tokenizer Proxy (`POST /v1/tokenizer/proxy`) allows merchants to use Bolt tokenization while keeping their existing payment processor. It takes a Bolt token, exchanges it for the raw PAN in a PCI-compliant environment, and forwards to the merchant's processor. This is a **backend-only** concern — the SDK does not call this endpoint directly.
+
+**SDK responsibility:** Ensure `tokenize()` returns tokens compatible with the Tokenizer Proxy. The token format from `credit_card_input` tokenization should already work, but needs E2E verification.
+
+**No SDK changes needed**, but documentation/example should show the expected backend integration.
+
+#### 7.4 — Wallet Management Documentation
+
+Per requirements, the merchant must maintain shopper wallets in their own app UI. The data comes from Bolt's APIs but the merchant renders it (they don't want our webview/payment-selector element).
+
+**Backend APIs the merchant will use (not SDK, but must be documented):**
+
+- `GET /v3/account` — returns saved `credit_card_id`s (with last4, network, expiration) and `shopper_address_id`s
+- Add card via API (after tokenization or Apple/Google Pay)
+- Delete card / update default payment method (if supported)
+
+**SDK responsibility:** Our documentation/example app should show the complete wallet management flow:
+
+1. Merchant authenticates shopper → calls Merchant Shopper Login → gets auth code
+2. Merchant backend exchanges auth code → OAuth token → access token
+3. Merchant backend calls `GET /v3/account` → gets saved cards
+4. Merchant app displays cards in their own UI
+5. To add a new card: SDK `CreditCard.Component` → `tokenize()` → merchant backend adds card via API
+6. To add via Apple Pay: SDK `ApplePay` component → `onComplete` → merchant backend adds card via API
+
+#### 7.5 — Shopper Identity Flows Documentation
+
+Three flows need to be documented per requirements:
+
+**Flow 1: Recognized (new to app)**
+
+```
+App auth → phone number → Bolt Merchant Shopper Login (finds existing Bolt account)
+→ OAuth token exchange → GET /v3/account → saved cards populate in app UI
+→ Shopper completes action → POST /v3/payments with credit_card_id (or Tokenizer Proxy to Stripe)
+```
+
+**Flow 2: Unrecognized (new shopper)**
+
+```
+App auth → Bolt Merchant Shopper Login (creates new Bolt account)
+→ OAuth token exchange → no saved cards
+→ SDK: CreditCard.Component → tokenize() → add card to Bolt account
+→ 3DS bootstrap ($1 auth + void)
+→ Shopper completes action → POST /v3/payments or Tokenizer Proxy
+```
+
+**Flow 3: Returning shopper**
+
+```
+App auth → Bolt Merchant Shopper Login (existing account)
+→ OAuth token exchange → GET /v3/account → stored cards shown
+→ Use stored card or add new via SDK
+→ Shopper completes action → payment
+```
+
+**Open question:** How to capture email for unrecognized shoppers?
+
+- Option 1: Don't require email (phone-only Bolt account) — under discussion
+- Option 2-3: TBD
+
+#### 7.6 — Guest/Unrecognized Shopper Payments
+
+For shoppers without a Bolt account who decline to create one, the Bolt API supports `POST /v3/guest/payments`. This requires:
+
+- Profile data (name, email, phone)
+- Cart details
+- Tokenized credit card with billing address
+- Optional `create_bolt_account` flag
+
+**SDK impact:** No additional SDK components needed. The SDK provides the token via `tokenize()`, the merchant backend handles the guest payment API call.
+
+---
+
+## Open Questions & Dependencies
+
+| Question                                                             | Owner           | Status                                               |
+| -------------------------------------------------------------------- | --------------- | ---------------------------------------------------- |
+| Can Bolt support 3DS at add-card time ($0 auth)?                     | Bolt backend    | Confirmed NO currently — merchant using $1 bootstrap |
+| Can void of $1 auth be async to reduce latency?                      | Bolt backend    | Under discussion                                     |
+| Webview Apple Pay vs native TurboModule — pick one or both?          | SDK team + Bolt | Webview target 9/15, native TBD                      |
+| Is Google Pay required or is Apple Pay enough?                       | Merchant        | TBD                                                  |
+| How to handle email for unrecognized shoppers (phone-only accounts)? | Bolt + Merchant | Under discussion                                     |
+| Ignite API support for Bolt Connect?                                 | Bolt backend    | 9/15 target                                          |
+| Tokenizer Proxy revenue/fee model for proxied payments?              | Bolt biz        | Under discussion                                     |
+| Bolt Connect onboarding docs ready?                                  | Bolt docs       | 9/15 target                                          |
 
 ---
 
@@ -381,14 +579,17 @@ Apple Pay and Google Pay cannot use WebViews — they require native platform AP
 
 ## Risks & Mitigations
 
-| Risk                                                   | Impact | Mitigation                                                       |
-| ------------------------------------------------------ | ------ | ---------------------------------------------------------------- |
-| `window.parent` override fails on some WebView engines | High   | Storm-side changes provide reliable fallback                     |
-| CSP on connect.bolt.com blocks injected JS             | High   | `injectedJavaScriptBeforeContentLoaded` runs pre-CSP             |
-| Apple/Google Pay complexity                            | High   | Budget 4-8 weeks; get device access early                        |
-| WebView cold start performance                         | Medium | Preload WebView on app init                                      |
-| Keyboard handling in WebView                           | Medium | `keyboardDisplayRequiresUserAction={false}`, auto-resize         |
-| Screenshot/screen recording of card data               | Medium | Research `FLAG_SECURE` (Android) and screenshot prevention (iOS) |
+| Risk                                                    | Impact | Mitigation                                                       |
+| ------------------------------------------------------- | ------ | ---------------------------------------------------------------- |
+| `window.parent` override fails on some WebView engines  | High   | Storm-side changes provide reliable fallback                     |
+| CSP on connect.bolt.com blocks injected JS              | High   | `injectedJavaScriptBeforeContentLoaded` runs pre-CSP             |
+| Apple/Google Pay complexity                             | High   | Budget 4-8 weeks; get device access early                        |
+| Apple Pay token format incompatible with add-card API   | High   | Verify early; webview Apple Pay is fallback (9/15 target)        |
+| $0 auth doesn't support 3DS (forces $1 bootstrap)       | Medium | Workaround in place; track backend support for $0+3DS            |
+| Tokenizer Proxy issues (currently being debugged) | High   | Active work with merchant to unblock                             |
+| WebView cold start performance                          | Medium | Preload WebView on app init                                      |
+| Keyboard handling in WebView                            | Medium | `keyboardDisplayRequiresUserAction={false}`, auto-resize         |
+| Screenshot/screen recording of card data                | Medium | Research `FLAG_SECURE` (Android) and screenshot prevention (iOS) |
 
 ---
 
@@ -400,5 +601,9 @@ Apple Pay and Google Pay cannot use WebViews — they require native platform AP
 4. [ ] **Apple Pay:** Physical iPhone test sandbox, verify Apple Pay sheet and Bolt token
 5. [ ] **Google Pay:** Physical Android device, verify Google Pay sheet and Bolt token
 6. [ ] **Cross-platform:** Both iOS simulator and Android emulator + physical devices
-7. ✅ **Unit tests:** 17 tests passing (BoltBridgeDispatcher, CreditCard, ThreeDSecure, root exports)
+7. ✅ **Unit tests:** 54 tests passing (BoltBridgeDispatcher, CreditCard, ThreeDSecure, root exports)
 8. ✅ **TypeScript:** Compiles cleanly with strict mode
+9. [ ] **3DS bootstrap flow:** Tokenize → fetch 3DS ref → $1 auth → challenge (if required) → void
+10. [ ] **Tokenizer Proxy compatibility:** Verify tokenize() output works with `POST /v1/tokenizer/proxy`
+11. [ ] **Apple Pay add-card:** Verify token + billing contact compatible with Bolt add-card API
+12. [ ] **Wallet round-trip:** Add card via SDK → verify card appears in `GET /v3/account` response
