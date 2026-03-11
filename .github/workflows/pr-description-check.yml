@@ -8,12 +8,76 @@ on:
       - reopened
       - synchronize
       - edited
+permissions:
+  contents: read
 
 jobs:
-  check:
-    # Temporarily disabled due to issues with the reusable workflow
-    # uses: BoltApp/actions-reusable-workflows/.github/workflows/pr-description-check.yaml@v1
+  pr-description-check:
     runs-on: ubuntu-latest
     steps:
-      - name: Always pass
-        run: echo "PR description check is temporarily disabled"
+      - name: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Temporary - to be removed in few months after enabling the check in all repos
+            // Skip the check and exit with a success if a PR was created before 2024-11-11.
+            const created_at = context.payload.pull_request.created_at
+            if (created_at < "2024-11-11") {
+              core.warning("Skipping the check because the PR was created before 2024-11-11.");
+              return;
+            }
+
+            // Parameters
+            const REQUIRED_CHECKBOXES = [
+              "I have considered and reviewed security implications of this PR and included the summary below.",
+            ];
+            const PLACEHOLDERS_TEXTS = [
+              "This is a placeholder for the PR description",
+              "This is a placeholder for the security review summary"
+            ]
+
+            // Main code
+            const pr_body = context.payload.pull_request.body;
+            var failed = false;
+
+            checkCheckboxes();
+            checkPlaceholders();
+
+            if (failed) core.setFailed("Check failed. See the logs above.");
+
+            // Functions
+            function checkCheckboxes() {
+              for (const checkbox of REQUIRED_CHECKBOXES) {
+                core.info(`Checking if '${checkbox}' is checked...`);
+
+                const all_regex = new RegExp(`^\\s*-\\s*\\[.*\\]\\s*${checkbox}$`, "mgi");
+                const all_matches = pr_body.match(all_regex);
+                if (all_matches.length > 1)
+                  failBuild("The PR description cannot contain more than 1 occurrence of this line.");
+
+                const checked_regex = new RegExp(`^\\s*-\\s*\\[x\\]\\s*${checkbox}$`, "mgi");
+                const is_checked = checked_regex.test(pr_body);
+                if (is_checked)
+                  core.info("Success!");
+                else
+                  failBuild("Fail...");
+              }
+            }
+
+            function checkPlaceholders() {
+              for (const placeholder of PLACEHOLDERS_TEXTS) {
+                core.info(`Checking if '${placeholder}' text is modified...`);
+
+                const regex = new RegExp(placeholder, "mgi");
+                const exists = regex.test(pr_body);
+                if (!exists)
+                  core.info("Yes it is!");
+                else
+                  failBuild("It's still there...");
+              }
+            }
+
+            function failBuild(msg) {
+              failed = true;
+              core.error(msg);
+            }
