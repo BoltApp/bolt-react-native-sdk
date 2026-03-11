@@ -116,6 +116,7 @@ export interface ApplePayConfig {
 
 export interface GooglePayResult {
   token: string;
+  email?: string;
   billingAddress?: GooglePayBillingAddress;
 }
 
@@ -127,6 +128,7 @@ export interface GooglePayBillingAddress {
   administrativeArea?: string;
   postalCode?: string;
   countryCode?: string;
+  phoneNumber?: string;
 }
 
 export interface GooglePayConfig {
