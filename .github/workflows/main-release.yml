@@ -13,7 +13,7 @@ jobs:
   release-and-publish:
     name: Release & Publish
     needs: ci
-    runs-on: ubuntu-24.04-16-cores
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
