@@ -1,0 +1,5 @@
+# Default owner for all files
+
+* @BoltApp/web-platform @BoltApp/eng
+
+.github/CODEOWNERS @BoltApp/tech-leads @BoltApp/web-platform
