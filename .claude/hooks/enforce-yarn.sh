@@ -1,4 +1,3 @@
-
 #!/bin/bash
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command')
