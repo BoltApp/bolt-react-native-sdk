@@ -109,8 +109,8 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
                     val result = JSONObject()
                     result.put("token", tokenResult.optString("token", ""))
 
-                    val billingAddress = paymentInfo
-                        .optJSONObject("paymentMethodData")
+                    val paymentMethodData = paymentInfo.optJSONObject("paymentMethodData")
+                    val billingAddress = paymentMethodData
                         ?.optJSONObject("info")
                         ?.optJSONObject("billingAddress")
                     if (billingAddress != null) {
@@ -122,7 +122,14 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
                         address.put("administrativeArea", billingAddress.optString("administrativeArea", ""))
                         address.put("postalCode", billingAddress.optString("postalCode", ""))
                         address.put("countryCode", billingAddress.optString("countryCode", ""))
+                        address.put("phoneNumber", billingAddress.optString("phoneNumber", ""))
                         result.put("billingAddress", address)
+                    }
+
+                    // Email is at the top level of the payment response
+                    val email = paymentInfo.optString("email", "")
+                    if (email.isNotEmpty()) {
+                        result.put("email", email)
                     }
 
                     promise.resolve(result.toString())
@@ -162,6 +169,10 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
         cardParams.put("allowedAuthMethods", JSONArray(listOf("PAN_ONLY", "CRYPTOGRAM_3DS")))
         cardParams.put("allowedCardNetworks", JSONArray(listOf("VISA", "MASTERCARD", "AMEX", "DISCOVER")))
         cardParams.put("billingAddressRequired", true)
+        val billingAddressParams = JSONObject()
+        billingAddressParams.put("format", "FULL")
+        billingAddressParams.put("phoneNumberRequired", true)
+        cardParams.put("billingAddressParameters", billingAddressParams)
 
         val tokenSpec = JSONObject()
         tokenSpec.put("type", "PAYMENT_GATEWAY")
@@ -190,6 +201,7 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
         merchantInfo.put("merchantId", config.optString("merchantId", ""))
         merchantInfo.put("merchantName", config.optString("merchantName", ""))
         params.put("merchantInfo", merchantInfo)
+        params.put("emailRequired", true)
 
         return params
     }

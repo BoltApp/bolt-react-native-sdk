@@ -14,7 +14,7 @@
 | Phase 7: End-to-End Flows               | [ ] Not started — new phase based on updated requirements                  |
 | File structure                          | ✅ All 24 planned files created                                            |
 | TypeScript                              | ✅ Compiles cleanly (strict mode)                                          |
-| Unit tests                              | ✅ 54 tests passing                                                        |
+| Unit tests                              | ✅ 60 tests passing                                                        |
 
 **Remaining work:**
 
@@ -412,7 +412,10 @@ Apple Pay and Google Pay cannot use WebViews — they require native platform AP
 - ✅ `ios/ApplePayModule.swift` — PassKit implementation (canMakePayments, requestPayment, merchant validation, tokenization)
 - ✅ `android/.../GooglePayModule.kt` — PaymentsClient implementation (isReadyToPay, requestPayment, tokenization)
 - [ ] Verify token format is compatible with Bolt's add-card API (not just direct payment)
-- [ ] Ensure billing contact fields (especially email) are requested and returned
+- ✅ Ensure billing contact fields (especially email) are requested and returned
+  - iOS: `requiredBillingContactFields` now includes `.emailAddress` and `.phoneNumber`
+  - Android: `billingAddressParameters` set to `FULL` format with `phoneNumberRequired`, `emailRequired` at top level
+  - TypeScript: `GooglePayResult.email` and `GooglePayBillingAddress.phoneNumber` added
 - [ ] Test Apple Pay on physical iPhone with sandbox account
 - [ ] Test Google Pay on physical Android device with test account
 - [ ] App store compliance review for wallet payment provisioning
@@ -601,7 +604,7 @@ For shoppers without a Bolt account who decline to create one, the Bolt API supp
 4. [ ] **Apple Pay:** Physical iPhone test sandbox, verify Apple Pay sheet and Bolt token
 5. [ ] **Google Pay:** Physical Android device, verify Google Pay sheet and Bolt token
 6. [ ] **Cross-platform:** Both iOS simulator and Android emulator + physical devices
-7. ✅ **Unit tests:** 54 tests passing (BoltBridgeDispatcher, CreditCard, ThreeDSecure, root exports)
+7. ✅ **Unit tests:** 60 tests passing (BoltBridgeDispatcher, CreditCard, ThreeDSecure, WalletTypes, root exports)
 8. ✅ **TypeScript:** Compiles cleanly with strict mode
 9. [ ] **3DS bootstrap flow:** Tokenize → fetch 3DS ref → $1 auth → challenge (if required) → void
 10. [ ] **Tokenizer Proxy compatibility:** Verify tokenize() output works with `POST /v1/tokenizer/proxy`

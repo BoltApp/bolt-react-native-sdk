@@ -66,7 +66,7 @@ class ApplePayModule: NSObject {
       ]
     }
 
-    request.requiredBillingContactFields = [.postalAddress, .name]
+    request.requiredBillingContactFields = [.postalAddress, .name, .emailAddress, .phoneNumber]
 
     DispatchQueue.main.async {
       let controller = PKPaymentAuthorizationController(paymentRequest: request)

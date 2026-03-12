@@ -37,8 +37,11 @@ bolt.configureOnPageStyles({
   '--bolt-input_focus-borderColor': '#5A31F4',
 });
 
-const CheckoutScreen = () => {
-  // Per-element styles override global onPageStyles
+// ── Card Addition + 3DS Bootstrap Flow ─────────────────────
+// Demonstrates: tokenize → fetch 3DS reference → (merchant backend
+// would call V3 Payments $1 auth → void, then add card to Bolt account)
+
+const AddCardScreen = () => {
   const cc = CreditCard.useController({
     styles: {
       '--bolt-input-backgroundColor': '#fafafa',
@@ -46,6 +49,7 @@ const CheckoutScreen = () => {
   });
   const threeDSecure = useThreeDSecure();
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null);
+  const [threeDSRef, setThreeDSRef] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [cardValid, setCardValid] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -58,10 +62,13 @@ const CheckoutScreen = () => {
   cc.on('error', (msg) => setFieldError(msg as string));
   cc.on('focus', () => setFieldError(null));
 
-  const handlePayment = useCallback(async () => {
+  // Flow: tokenize card → fetch 3DS reference → ready for backend $1 auth
+  const handleAddCard = useCallback(async () => {
     setLoading(true);
+    setTokenResult(null);
+    setThreeDSRef(null);
     try {
-      // 1. Tokenize card — returns TokenResult | Error (never throws)
+      // Step 1: Tokenize card
       const result = await cc.tokenize();
       if (result instanceof Error) {
         Alert.alert('Tokenization Error', result.message);
@@ -69,59 +76,66 @@ const CheckoutScreen = () => {
       }
       setTokenResult(result);
 
-      // 2. Fetch 3DS reference ID — throws ThreeDSError on failure
+      // Step 2: Fetch 3DS reference ID for liability shift
       const referenceID = await threeDSecure.fetchReferenceID({
         token: result.token,
         bin: result.bin,
         last4: result.last4,
       });
+      setThreeDSRef(referenceID);
 
       Alert.alert(
-        'Tokenization Success',
+        'Card Ready',
         `Token: ${result.token?.slice(0, 20)}...\n` +
           `Last4: ${result.last4}\n` +
           `Network: ${result.network}\n` +
-          `3DS Ref: ${referenceID.slice(0, 20)}...`
+          `3DS Ref: ${referenceID.slice(0, 20)}...\n\n` +
+          'Next: merchant backend calls V3 Payments $1 auth with 3DS reference, ' +
+          'then voids the auth and adds the card to the Bolt account.'
       );
 
-      // Reset form state for another payment
-      setTokenResult(null);
-      setCardValid(false);
-      setFieldError(null);
-
-      // 3. In a real app, you would now create the payment on your backend:
-      // const paymentResponse = await merchantApi.createPayment(result);
-      //
-      // 4. Handle 3DS challenge if required — returns ThreeDSResult (never throws):
-      // if (paymentResponse[".tag"] === "three_ds_required") {
-      //   const challengeResult = await threeDSecure.challengeWithConfig(
-      //     paymentResponse.id,
-      //     {
-      //       referenceID,
-      //       jwtPayload: paymentResponse.jwt_payload,
-      //       stepUpUrl: paymentResponse.step_up_url,
-      //     }
-      //   );
-      //   if (!challengeResult.success) {
-      //     Alert.alert('3DS Failed', challengeResult.error?.message);
-      //   }
-      // }
+      // Step 3 (merchant backend, not SDK):
+      //   POST /v3/payments with token + 3DS reference for $1 auth
+      //   If 3DS challenge required:
+      //     const challengeResult = await threeDSecure.challengeWithConfig(
+      //       paymentResponse.id,
+      //       { referenceID, jwtPayload: ..., stepUpUrl: ... }
+      //     );
+      //   POST void transaction API to void the $1 auth
+      //   POST add card API to store the card → receive creditCardID
     } catch (error) {
       Alert.alert(
         'Error',
-        error instanceof Error ? error.message : 'Payment failed'
+        error instanceof Error ? error.message : 'Failed to add card'
       );
     } finally {
       setLoading(false);
     }
   }, [cc, threeDSecure]);
 
+  // Apple Pay: capture token + billing contact (including email for Bolt account creation)
   const handleApplePayComplete = useCallback((result: ApplePayResult) => {
-    Alert.alert('Apple Pay Success', `Token: ${result.token.slice(0, 20)}...`);
+    Alert.alert(
+      'Apple Pay Card Added',
+      `Token: ${result.token.slice(0, 20)}...\n` +
+        `Email: ${result.billingContact?.emailAddress ?? 'N/A'}\n` +
+        `Phone: ${result.billingContact?.phoneNumber ?? 'N/A'}\n` +
+        `Name: ${result.billingContact?.givenName ?? ''} ${result.billingContact?.familyName ?? ''}\n\n` +
+        'Next: merchant backend calls Bolt add-card API with this token. ' +
+        'Bolt creates account using email from Apple Pay response.'
+    );
   }, []);
 
+  // Google Pay: capture token + billing address + email
   const handleGooglePayComplete = useCallback((result: GooglePayResult) => {
-    Alert.alert('Google Pay Success', `Token: ${result.token.slice(0, 20)}...`);
+    Alert.alert(
+      'Google Pay Card Added',
+      `Token: ${result.token.slice(0, 20)}...\n` +
+        `Email: ${result.email ?? 'N/A'}\n` +
+        `Name: ${result.billingAddress?.name ?? 'N/A'}\n` +
+        `Phone: ${result.billingAddress?.phoneNumber ?? 'N/A'}\n\n` +
+        'Next: merchant backend calls Bolt add-card API with this token.'
+    );
   }, []);
 
   const handleWalletError = useCallback((error: Error) => {
@@ -130,46 +144,59 @@ const CheckoutScreen = () => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Bolt Checkout Demo</Text>
+      <Text style={styles.title}>Bolt SDK Demo</Text>
+      <Text style={styles.subtitle}>Card Addition + 3DS Bootstrap</Text>
 
       {/* Credit Card Input */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Credit Card</Text>
+        <Text style={styles.sectionTitle}>Add Credit Card</Text>
         <CreditCard.Component controller={cc} style={styles.cardInput} />
         {cardValid && <Text style={styles.validText}>Card details valid</Text>}
         {fieldError && <Text style={styles.errorText}>{fieldError}</Text>}
       </View>
 
-      {/* 3DS Component (hidden, but must be mounted) */}
+      {/* 3DS Component (hidden, but must be mounted for device data collection) */}
       <threeDSecure.Component style={styles.hidden} />
 
-      {/* Pay Button */}
+      {/* Add Card Button */}
       <TouchableOpacity
         style={[
-          styles.payButton,
-          (loading || !cardValid) && styles.payButtonDisabled,
+          styles.primaryButton,
+          (loading || !cardValid) && styles.buttonDisabled,
         ]}
-        onPress={handlePayment}
+        onPress={handleAddCard}
         disabled={loading || !cardValid}
       >
-        <Text style={styles.payButtonText}>
-          {loading ? 'Processing...' : 'Pay with Card'}
+        <Text style={styles.primaryButtonText}>
+          {loading ? 'Processing...' : 'Add Card + 3DS Bootstrap'}
         </Text>
       </TouchableOpacity>
 
-      {/* Token Result */}
+      {/* Results */}
       {tokenResult && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Token Result</Text>
           <Text style={styles.mono}>
             {JSON.stringify(tokenResult, null, 2)}
           </Text>
+          {threeDSRef && (
+            <>
+              <Text style={[styles.sectionTitle, styles.resultSpacing]}>
+                3DS Reference
+              </Text>
+              <Text style={styles.mono}>{threeDSRef}</Text>
+            </>
+          )}
         </View>
       )}
 
-      {/* Wallet Payments */}
+      {/* Add Card from Digital Wallet */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Digital Wallets</Text>
+        <Text style={styles.sectionTitle}>Add Card from Wallet</Text>
+        <Text style={styles.description}>
+          Adds card to Bolt account. Email from wallet response is used for Bolt
+          account creation.
+        </Text>
 
         {Platform.OS === 'ios' && (
           <ApplePay
@@ -177,7 +204,7 @@ const CheckoutScreen = () => {
               merchantId: 'merchant.com.bolt.example',
               countryCode: 'US',
               currencyCode: 'USD',
-              total: { label: 'Demo Store', amount: '9.99' },
+              total: { label: 'Card Verification', amount: '0.00' },
             }}
             onComplete={handleApplePayComplete}
             onError={handleWalletError}
@@ -192,7 +219,8 @@ const CheckoutScreen = () => {
               merchantName: 'Demo Store',
               countryCode: 'US',
               currencyCode: 'USD',
-              totalPrice: '9.99',
+              totalPrice: '0.00',
+              totalPriceStatus: 'ESTIMATED',
             }}
             onComplete={handleGooglePayComplete}
             onError={handleWalletError}
@@ -207,7 +235,7 @@ const CheckoutScreen = () => {
 export default function App() {
   return (
     <BoltProvider client={bolt}>
-      <CheckoutScreen />
+      <AddCardScreen />
     </BoltProvider>
   );
 }
@@ -222,8 +250,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 24,
     textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
   },
   section: {
     marginBottom: 20,
@@ -242,6 +275,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: '#333',
   },
+  description: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
   cardInput: {
     minHeight: 200,
   },
@@ -259,7 +298,7 @@ const styles = StyleSheet.create({
     height: 0,
     overflow: 'hidden',
   },
-  payButton: {
+  primaryButton: {
     backgroundColor: '#5A31F4',
     height: 52,
     borderRadius: 12,
@@ -267,16 +306,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
   },
-  payButtonDisabled: {
+  buttonDisabled: {
     opacity: 0.6,
   },
-  payButtonText: {
+  primaryButtonText: {
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
   },
   walletButton: {
     marginTop: 12,
+  },
+  resultSpacing: {
+    marginTop: 16,
   },
   mono: {
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
