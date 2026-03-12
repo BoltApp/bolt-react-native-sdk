@@ -7,19 +7,19 @@
 | Phase 1: Infrastructure & Configuration | ✅ Complete                                                                |
 | Phase 2: WebView Bridge (2.1-2.4)       | ✅ Complete                                                                |
 | Phase 2.5: Storm-Side Changes           | [ ] Not started (external dependency — requires changes to storm codebase) |
-| Phase 3: Credit Card Component          | ✅ Complete (core messages + field events; `setPort` RPC pending)          |
+| Phase 3: Credit Card Component          | ✅ Complete (core messages + field events; `setPort` deferred — not needed for tokenization) |
 | Phase 4: 3D Secure Component            | ✅ Complete                                                                |
 | Phase 5: Digital Wallets                | ✅ Code written — needs physical device testing                            |
 | Phase 6: Integration & QA               | Partial — example app built, E2E/device testing pending                    |
-| Phase 7: End-to-End Flows               | [ ] Not started — new phase based on updated requirements                  |
+| Phase 7: End-to-End Flows               | 🔄 In progress — 7.1 message flow tests complete                          |
 | File structure                          | ✅ All 24 planned files created                                            |
 | TypeScript                              | ✅ Compiles cleanly (strict mode)                                          |
-| Unit tests                              | ✅ 60 tests passing                                                        |
+| Unit tests                              | ✅ 89 tests passing                                                        |
 
 **Remaining work:**
 
 - Storm-side changes (3 files in `libs/base/`) — external dependency, not in this repo
-- Credit Card `setPort` RPC channel
+- Credit Card `setPort` RPC channel — **deferred** (not needed for tokenization; only used for `loadMerchantDetails()` + analytics)
 - E2E verification (bridge smoke test, tokenization, 3DS challenge)
 - Physical device testing for Apple Pay and Google Pay
 - App store compliance review
@@ -384,7 +384,7 @@ Implements the controller pattern from Alan's spec with message flow:
 | ------------ | --------------------------------- | ------------------------- | ----------- |
 | Frame → Host | `CreditCard.FrameInitialized`     | WebView content loaded    | ✅          |
 | Host → Frame | `SetConfig`                       | After init, sends options | ✅          |
-| Host → Frame | `setPort` (with virtual port)     | RPC channel for auth      | [ ]         |
+| Host → Frame | `setPort` (with virtual port)     | RPC channel (low priority — only for `loadMerchantDetails()` + analytics, NOT needed for tokenization) | ⏸️ Deferred |
 | Frame → Host | `Focus`, `Blur`, `Valid`, `Error` | Field events              | ✅          |
 | Frame → Host | `SetIFrameHeight`                 | Auto-size WebView height  | ✅          |
 | Host → Frame | `GetToken`                        | When `tokenize()` called  | ✅          |
@@ -430,7 +430,7 @@ Apple Pay and Google Pay cannot use WebViews — they require native platform AP
 - [ ] Regression testing on both iOS and Android
 - [ ] App store compliance review preparation
 
-### Phase 7: End-to-End Flows — NOT STARTED
+### Phase 7: End-to-End Flows — IN PROGRESS
 
 This phase addresses the full integration requirements beyond basic card input/tokenization, based on the updated requirements doc and the March 5th integration call.
 
@@ -445,6 +445,12 @@ Per requirements, 3DS authentication is needed at card-addition time to shift li
 5. **Merchant backend:** Call **Void Transaction API** to void the $1 auth
 
 **SDK impact:** Our existing `fetchReferenceID()` and `challengeWithConfig()` already support this. The SDK work is ensuring the example app demonstrates this flow and that the 3DS component can be triggered independently of a "real" payment (i.e., for a $1 bootstrap auth).
+
+**Status:**
+- ✅ Example app demonstrates tokenize → fetchReferenceID → (commented) challengeWithConfig flow
+- ✅ Message flow unit tests: `useThreeDSecure.test.tsx` (FetchReferenceID → VerificationIDResult, TriggerAuthWithConfig → Result, full bootstrap sequence, input validation, error codes)
+- ✅ Tokenization flow tests: `useCreditCardController.test.ts` (GetToken → GetTokenReply success/error, field events, SetConfig, SetStyles, parseBoltMessage, validation error codes)
+- [ ] E2E verification on device (requires staging credentials + physical device)
 
 **Open question (optimization):** Can Bolt support 3DS at add-card time ($0 auth)? Currently confirmed that $0 auth does not include 3DS. If this changes, the $1 bootstrap flow becomes unnecessary.
 
@@ -604,7 +610,7 @@ For shoppers without a Bolt account who decline to create one, the Bolt API supp
 4. [ ] **Apple Pay:** Physical iPhone test sandbox, verify Apple Pay sheet and Bolt token
 5. [ ] **Google Pay:** Physical Android device, verify Google Pay sheet and Bolt token
 6. [ ] **Cross-platform:** Both iOS simulator and Android emulator + physical devices
-7. ✅ **Unit tests:** 60 tests passing (BoltBridgeDispatcher, CreditCard, ThreeDSecure, WalletTypes, root exports)
+7. ✅ **Unit tests:** 89 tests passing (BoltBridgeDispatcher, CreditCard, ThreeDSecure, WalletTypes, useThreeDSecure message flows, useCreditCardController message flows, parseBoltMessage, root exports)
 8. ✅ **TypeScript:** Compiles cleanly with strict mode
 9. [ ] **3DS bootstrap flow:** Tokenize → fetch 3DS ref → $1 auth → challenge (if required) → void
 10. [ ] **Tokenizer Proxy compatibility:** Verify tokenize() output works with `POST /v1/tokenizer/proxy`
