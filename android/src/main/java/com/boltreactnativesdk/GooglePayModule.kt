@@ -132,6 +132,12 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
                         result.put("email", email)
                     }
 
+                    // Bolt reference from tokenize response (used for add-card API)
+                    val boltReference = tokenResult.optString("bolt_reference", "")
+                    if (boltReference.isNotEmpty()) {
+                        result.put("boltReference", boltReference)
+                    }
+
                     promise.resolve(result.toString())
                 } else {
                     promise.reject("TOKENIZE_FAILED", "Failed to tokenize Google Pay payment")

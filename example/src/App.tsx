@@ -95,6 +95,8 @@ const AddCardScreen = () => {
       );
 
       // Step 3 (merchant backend, not SDK):
+      //
+      // Option A: Bolt V3 Payments (direct)
       //   POST /v3/payments with token + 3DS reference for $1 auth
       //   If 3DS challenge required:
       //     const challengeResult = await threeDSecure.challengeWithConfig(
@@ -103,6 +105,12 @@ const AddCardScreen = () => {
       //     );
       //   POST void transaction API to void the $1 auth
       //   POST add card API to store the card → receive creditCardID
+      //
+      // Option B: Tokenizer Proxy (existing processor)
+      //   POST /v1/tokenizer/proxy with Bolt token
+      //   Bolt exchanges token for raw PAN in PCI-compliant environment
+      //   Forwards to merchant's existing processor (e.g., Stripe)
+      //   Merchant receives processor token for payment
     } catch (error) {
       Alert.alert(
         'Error',
@@ -133,7 +141,8 @@ const AddCardScreen = () => {
       `Token: ${result.token.slice(0, 20)}...\n` +
         `Email: ${result.email ?? 'N/A'}\n` +
         `Name: ${result.billingAddress?.name ?? 'N/A'}\n` +
-        `Phone: ${result.billingAddress?.phoneNumber ?? 'N/A'}\n\n` +
+        `Phone: ${result.billingAddress?.phoneNumber ?? 'N/A'}\n` +
+        `Bolt Ref: ${result.boltReference ?? 'N/A'}\n\n` +
         'Next: merchant backend calls Bolt add-card API with this token.'
     );
   }, []);
@@ -232,10 +241,165 @@ const AddCardScreen = () => {
   );
 };
 
+// ── Wallet Management (Shopper Identity Flows) ─────────────
+// Demonstrates how the merchant app manages saved cards using
+// Bolt APIs alongside the SDK for card input/tokenization.
+//
+// This is a UI-only demo — the merchant backend calls are shown
+// as commented pseudocode since they happen server-side.
+//
+// Three shopper flows:
+//
+// Flow 1: Recognized shopper (new to app)
+//   App auth → phone number → Bolt Merchant Shopper Login (finds existing Bolt account)
+//   → OAuth token exchange → GET /v3/account → saved cards populate in app UI
+//   → Shopper pays → POST /v3/payments with credit_card_id
+//
+// Flow 2: Unrecognized shopper (new)
+//   App auth → Bolt Merchant Shopper Login (creates new Bolt account)
+//   → OAuth token exchange → no saved cards
+//   → SDK: CreditCard.Component → tokenize() → add card to Bolt account
+//   → 3DS bootstrap ($1 auth + void)
+//   → Shopper pays → POST /v3/payments or Tokenizer Proxy
+//
+// Flow 3: Returning shopper
+//   App auth → Bolt Merchant Shopper Login (existing account)
+//   → OAuth token exchange → GET /v3/account → stored cards shown
+//   → Use stored card or add new via SDK
+//   → Shopper pays → payment
+
+// Mock data representing what GET /v3/account returns
+const MOCK_SAVED_CARDS = [
+  {
+    credit_card_id: 'cc_abc123',
+    last4: '1111',
+    network: 'visa',
+    expiration: '2028-12',
+  },
+  {
+    credit_card_id: 'cc_def456',
+    last4: '4242',
+    network: 'mastercard',
+    expiration: '2027-06',
+  },
+];
+
+const WalletScreen = () => {
+  const [savedCards] = useState(MOCK_SAVED_CARDS);
+  const [selectedCard, setSelectedCard] = useState<string | null>(null);
+
+  const handlePayWithSavedCard = useCallback((creditCardId: string) => {
+    Alert.alert(
+      'Pay with Saved Card',
+      `Using credit_card_id: ${creditCardId}\n\n` +
+        'Merchant backend would call:\n' +
+        'POST /v3/payments with credit_card_id\n' +
+        '  or\n' +
+        'POST /v1/tokenizer/proxy for existing processor'
+    );
+  }, []);
+
+  // Guest payment flow (7.6) — for shoppers without a Bolt account
+  const handleGuestPayment = useCallback(() => {
+    Alert.alert(
+      'Guest Payment',
+      'For shoppers without a Bolt account:\n\n' +
+        '1. SDK: CreditCard.Component → tokenize()\n' +
+        '2. Merchant backend: POST /v3/guest/payments with:\n' +
+        '   - profile (name, email, phone)\n' +
+        '   - cart details\n' +
+        '   - tokenized credit card + billing address\n' +
+        '   - optional: create_bolt_account flag'
+    );
+  }, []);
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Wallet Management</Text>
+      <Text style={styles.subtitle}>Saved Cards from GET /v3/account</Text>
+
+      {/* Saved Cards List */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Saved Cards</Text>
+        <Text style={styles.description}>
+          Cards returned by GET /v3/account after Merchant Shopper Login + OAuth
+          token exchange. The merchant renders these in their own UI.
+        </Text>
+        {savedCards.map((card) => (
+          <TouchableOpacity
+            key={card.credit_card_id}
+            style={[
+              styles.cardRow,
+              selectedCard === card.credit_card_id && styles.cardRowSelected,
+            ]}
+            onPress={() => setSelectedCard(card.credit_card_id)}
+          >
+            <Text style={styles.cardNetwork}>{card.network.toUpperCase()}</Text>
+            <Text style={styles.cardDetails}>
+              ****{card.last4} — exp {card.expiration}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Pay with Saved Card */}
+      <TouchableOpacity
+        style={[styles.primaryButton, !selectedCard && styles.buttonDisabled]}
+        onPress={() => selectedCard && handlePayWithSavedCard(selectedCard)}
+        disabled={!selectedCard}
+      >
+        <Text style={styles.primaryButtonText}>Pay with Saved Card</Text>
+      </TouchableOpacity>
+
+      {/* Guest Payment */}
+      <TouchableOpacity
+        style={[styles.primaryButton, styles.secondaryButton]}
+        onPress={handleGuestPayment}
+      >
+        <Text style={[styles.primaryButtonText, styles.secondaryButtonText]}>
+          Guest Payment Flow
+        </Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+};
+
+// ── App with Tab Navigation ─────────────────────────────────
+
 export default function App() {
+  const [activeTab, setActiveTab] = useState<'addCard' | 'wallet'>('addCard');
+
   return (
     <BoltProvider client={bolt}>
-      <AddCardScreen />
+      {activeTab === 'addCard' ? <AddCardScreen /> : <WalletScreen />}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'addCard' && styles.tabActive]}
+          onPress={() => setActiveTab('addCard')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'addCard' && styles.tabTextActive,
+            ]}
+          >
+            Add Card
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'wallet' && styles.tabActive]}
+          onPress={() => setActiveTab('wallet')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'wallet' && styles.tabTextActive,
+            ]}
+          >
+            Wallet
+          </Text>
+        </TouchableOpacity>
+      </View>
     </BoltProvider>
   );
 }
@@ -324,5 +488,61 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontSize: 11,
     color: '#666',
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 8,
+    backgroundColor: '#f9fafb',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  cardRowSelected: {
+    borderColor: '#5A31F4',
+    backgroundColor: '#f5f3ff',
+  },
+  cardNetwork: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
+    width: 90,
+  },
+  cardDetails: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  secondaryButton: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#5A31F4',
+  },
+  secondaryButtonText: {
+    color: '#5A31F4',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  tabActive: {
+    borderTopWidth: 2,
+    borderTopColor: '#5A31F4',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  tabTextActive: {
+    color: '#5A31F4',
+    fontWeight: '600',
   },
 });

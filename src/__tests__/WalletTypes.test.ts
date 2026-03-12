@@ -62,7 +62,7 @@ describe('ApplePay types', () => {
 });
 
 describe('GooglePay types', () => {
-  it('GooglePayResult should include email and billingAddress with phoneNumber', () => {
+  it('GooglePayResult should include email, billingAddress with phoneNumber, and boltReference', () => {
     const result: GooglePayResult = {
       token: 'tok_google_123',
       email: 'jane@example.com',
@@ -76,6 +76,7 @@ describe('GooglePay types', () => {
         countryCode: 'US',
         phoneNumber: '+15551234567',
       },
+      boltReference: 'bolt_ref_google_456',
     };
 
     expect(result.token).toBe('tok_google_123');
@@ -83,9 +84,10 @@ describe('GooglePay types', () => {
     expect(result.billingAddress?.phoneNumber).toBe('+15551234567');
     expect(result.billingAddress?.name).toBe('Jane Doe');
     expect(result.billingAddress?.postalCode).toBe('94105');
+    expect(result.boltReference).toBe('bolt_ref_google_456');
   });
 
-  it('GooglePayResult should allow optional email and billingAddress', () => {
+  it('GooglePayResult should allow optional email, billingAddress, and boltReference', () => {
     const result: GooglePayResult = {
       token: 'tok_google_minimal',
     };
@@ -93,6 +95,7 @@ describe('GooglePay types', () => {
     expect(result.token).toBe('tok_google_minimal');
     expect(result.email).toBeUndefined();
     expect(result.billingAddress).toBeUndefined();
+    expect(result.boltReference).toBeUndefined();
   });
 
   it('GooglePayConfig should require merchantId, merchantName, countryCode, currencyCode, totalPrice', () => {

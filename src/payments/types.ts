@@ -118,6 +118,7 @@ export interface GooglePayResult {
   token: string;
   email?: string;
   billingAddress?: GooglePayBillingAddress;
+  boltReference?: string;
 }
 
 export interface GooglePayBillingAddress {
