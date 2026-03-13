@@ -5,7 +5,7 @@ inputs:
   registry-url:
     description: npm registry URL (set for publish steps)
     required: false
-    default: ""
+    default: ''
 
 runs:
   using: composite
@@ -15,9 +15,9 @@ runs:
       run: corepack enable
 
     - name: Setup Node.js Environment
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
-        node-version-file: ".nvmrc"
+        node-version-file: '.nvmrc'
         registry-url: ${{ inputs.registry-url || '' }}
 
     - name: Install yarn with Corepack
