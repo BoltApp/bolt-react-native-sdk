@@ -6,24 +6,24 @@
 | --------------------------------------- | -------------------------------------------------------------------------- |
 | Phase 1: Infrastructure & Configuration | ✅ Complete                                                                |
 | Phase 2: WebView Bridge (2.1-2.4)       | ✅ Complete                                                                |
-| Phase 2.5: Storm-Side Changes           | [ ] Not started (external dependency — requires changes to storm codebase) |
+| Phase 2.5: Storm-Side Changes           | ⏸️ Deferred — only if injected bridge fails on target devices              |
 | Phase 3: Credit Card Component          | ✅ Complete (core messages + field events; `setPort` deferred — not needed for tokenization) |
 | Phase 4: 3D Secure Component            | ✅ Complete                                                                |
 | Phase 5: Digital Wallets                | ✅ Code written — needs physical device testing                            |
 | Phase 6: Integration & QA               | Partial — example app built, E2E/device testing pending                    |
-| Phase 7: End-to-End Flows               | 🔄 In progress — 7.1 message flow tests complete                          |
+| Phase 7: End-to-End Flows               | ✅ Code complete — remaining items need backend E2E / device testing       |
 | File structure                          | ✅ All 24 planned files created                                            |
 | TypeScript                              | ✅ Compiles cleanly (strict mode)                                          |
 | Unit tests                              | ✅ 89 tests passing                                                        |
 
 **Remaining work:**
 
-- Storm-side changes (3 files in `libs/base/`) — external dependency, not in this repo
+- Storm-side changes — ⏸️ deferred (only needed if injected bridge fails on target devices)
 - Credit Card `setPort` RPC channel — **deferred** (not needed for tokenization; only used for `loadMerchantDetails()` + analytics)
-- E2E verification (bridge smoke test, tokenization, 3DS challenge)
+- E2E verification (bridge smoke test, tokenization, 3DS challenge) — requires staging environment
 - Physical device testing for Apple Pay and Google Pay
+- Token format verification against Bolt's add-card API (backend E2E)
 - App store compliance review
-- **Phase 7 work** — wallet management, 3DS bootstrap, Tokenizer Proxy compatibility, add-card-from-wallet flows
 
 ---
 
@@ -465,6 +465,15 @@ Storm's web elements (`add-card-from-apple-wallet`, `add-card-from-google-wallet
 - **`onComplete` result shape** should include: `{ token, billingContact: { email, name, phone, postalAddress } }` (Apple Pay) and equivalent for Google Pay.
 - **Bolt account creation:** When a shopper pays with Apple Pay for the first time, Bolt generates an account using the email from the Apple Pay response.
 
+**Status:**
+- ✅ Billing contact fields collected (email, phone, name, postal address) — both Apple Pay and Google Pay
+- ✅ `boltReference` field returned from both Apple Pay (`ApplePayResult.boltReference`) and Google Pay (`GooglePayResult.boltReference`) — extracted from Bolt tokenize API response
+- ✅ `onComplete` result shape matches requirements for both platforms
+- ✅ Example app displays billing contact + bolt reference in alerts
+- ✅ Type tests updated for `boltReference` field
+- [ ] Token format verification against Bolt's add-card API (requires backend E2E test)
+- [ ] Physical device testing (Apple Pay sandbox, Google Pay test account)
+
 **Deliverable targets from requirements doc:**
 
 - Apple Pay card addition: 9/22 target
@@ -478,6 +487,10 @@ The Tokenizer Proxy (`POST /v1/tokenizer/proxy`) allows merchants to use Bolt to
 **SDK responsibility:** Ensure `tokenize()` returns tokens compatible with the Tokenizer Proxy. The token format from `credit_card_input` tokenization should already work, but needs E2E verification.
 
 **No SDK changes needed**, but documentation/example should show the expected backend integration.
+
+**Status:**
+- ✅ Example app shows both V3 Payments and Tokenizer Proxy paths in commented backend integration steps
+- [ ] E2E verification that `tokenize()` output works with Tokenizer Proxy (requires backend test)
 
 #### 7.4 — Wallet Management Documentation
 
@@ -497,6 +510,11 @@ Per requirements, the merchant must maintain shopper wallets in their own app UI
 4. Merchant app displays cards in their own UI
 5. To add a new card: SDK `CreditCard.Component` → `tokenize()` → merchant backend adds card via API
 6. To add via Apple Pay: SDK `ApplePay` component → `onComplete` → merchant backend adds card via API
+
+**Status:**
+- ✅ Example app "Wallet" tab shows saved cards list (mock data matching `GET /v3/account` response shape)
+- ✅ "Pay with Saved Card" demonstrates using `credit_card_id` with V3 Payments or Tokenizer Proxy
+- ✅ "Add Card" tab demonstrates full card addition + 3DS bootstrap flow
 
 #### 7.5 — Shopper Identity Flows Documentation
 
@@ -529,6 +547,10 @@ App auth → Bolt Merchant Shopper Login (existing account)
 → Shopper completes action → payment
 ```
 
+**Status:**
+- ✅ All three shopper flows documented as inline comments in example app
+- ✅ Example app structure demonstrates the flows (Add Card tab = Flow 2, Wallet tab = Flow 1/3)
+
 **Open question:** How to capture email for unrecognized shoppers?
 
 - Option 1: Don't require email (phone-only Bolt account) — under discussion
@@ -544,6 +566,10 @@ For shoppers without a Bolt account who decline to create one, the Bolt API supp
 - Optional `create_bolt_account` flag
 
 **SDK impact:** No additional SDK components needed. The SDK provides the token via `tokenize()`, the merchant backend handles the guest payment API call.
+
+**Status:**
+- ✅ "Guest Payment Flow" button in example app Wallet tab shows the complete guest payment sequence
+- ✅ No SDK changes needed — `tokenize()` output is compatible with guest payments
 
 ---
 
@@ -562,13 +588,17 @@ For shoppers without a Bolt account who decline to create one, the Bolt API supp
 
 ---
 
-## Storm Codebase Changes Required — NOT STARTED (external dependency)
+## Storm Codebase Changes — ⏸️ DEFERRED
+
+Only needed if the injected bridge (`injectedBridge.ts`) fails on target devices — specifically if `Object.defineProperty(window, 'parent')` doesn't work or origin spoofing breaks.
 
 | File                                 | Change                                                    | Risk | Status |
 | ------------------------------------ | --------------------------------------------------------- | ---- | ------ |
-| `libs/base/utils/Parent.ts`          | Add `isReactNativeWebView()`, update `getParent()`        | Low  | [ ]    |
-| `libs/base/messaging/Listener.ts`    | Skip origin validation in RN WebView                      | Low  | [ ]    |
-| `libs/base/messaging/PostMessage.ts` | Route `safePost` through `ReactNativeWebView.postMessage` | Low  | [ ]    |
+| `libs/base/utils/Parent.ts`          | Add `isReactNativeWebView()`, update `getParent()`        | Low  | ⏸️    |
+| `libs/base/messaging/Listener.ts`    | Skip origin validation in RN WebView                      | Low  | ⏸️    |
+| `libs/base/messaging/PostMessage.ts` | Route `safePost` through `ReactNativeWebView.postMessage` | Low  | ⏸️    |
+
+**Decision:** Test injected bridge on physical devices first. If it works reliably, these changes are unnecessary.
 
 ---
 
