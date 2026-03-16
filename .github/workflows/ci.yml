@@ -12,7 +12,7 @@ jobs:
       FORCE_COLOR: 1
       NODE_OPTIONS: "--max-old-space-size=6144"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup
 
       - name: Run lint
