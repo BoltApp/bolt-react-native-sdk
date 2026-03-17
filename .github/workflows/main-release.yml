@@ -30,19 +30,33 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Release version
-        run: yarn release --ci
+        id: release
+        run: |
+          VERSION_BEFORE=$(node -p "require('./package.json').version")
+          yarn release --ci
+          VERSION_AFTER=$(node -p "require('./package.json').version")
+          if [ "$VERSION_BEFORE" = "$VERSION_AFTER" ]; then
+            echo "No version bump — skipping publish"
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Version bumped: $VERSION_BEFORE → $VERSION_AFTER"
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.PUBLIC_BOLT_CI_GITHUB_TOKEN }}
 
       - name: Setup npm registry
+        if: steps.release.outputs.bumped == 'true'
         uses: actions/setup-node@v6
         with:
           registry-url: "https://registry.npmjs.org"
 
       - name: Build
+        if: steps.release.outputs.bumped == 'true'
         run: yarn prepare
 
       - name: Publish to npm
+        if: steps.release.outputs.bumped == 'true'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
