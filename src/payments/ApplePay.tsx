@@ -9,6 +9,8 @@ import {
 import NativeApplePay from '../native/NativeApplePay';
 import { useBolt } from '../client/useBolt';
 import type { ApplePayResult, ApplePayConfig } from './types';
+import { startSpan, SpanStatusCode } from '../telemetry/tracer';
+import { BoltAttributes } from '../telemetry/attributes';
 
 export interface ApplePayProps {
   config: ApplePayConfig;
@@ -50,6 +52,11 @@ export const ApplePay = ({
       return;
     }
 
+    const span = startSpan('bolt.apple_pay.request_payment', {
+      [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+      [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
+    });
+
     try {
       const resultJson = await NativeApplePay.requestPayment(
         JSON.stringify(config),
@@ -57,11 +64,16 @@ export const ApplePay = ({
         bolt.baseUrl
       );
       const result: ApplePayResult = JSON.parse(resultJson);
+      span.setStatus({ code: SpanStatusCode.OK });
+      span.end();
       onComplete(result);
     } catch (err) {
-      onError?.(
-        err instanceof Error ? err : new Error('Apple Pay payment failed')
-      );
+      const error =
+        err instanceof Error ? err : new Error('Apple Pay payment failed');
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      span.recordException(error);
+      span.end();
+      onError?.(error);
     }
   }, [config, bolt, onComplete, onError]);
 

@@ -56,6 +56,14 @@ jobs:
         if: steps.release.outputs.bumped == 'true'
         run: yarn prepare
 
+      - name: Inject telemetry config
+        if: steps.release.outputs.bumped == 'true'
+        run: yarn inject-telemetry-config
+        env:
+          BOLT_OTLP_ENDPOINT: ${{ secrets.BOLT_OTLP_ENDPOINT }}
+          BOLT_OTLP_USERNAME: ${{ secrets.BOLT_OTLP_USERNAME }}
+          BOLT_OTLP_AUTH_TOKEN: ${{ secrets.BOLT_OTLP_AUTH_TOKEN }}
+
       - name: Publish to npm
         if: steps.release.outputs.bumped == 'true'
         run: npm publish --access public

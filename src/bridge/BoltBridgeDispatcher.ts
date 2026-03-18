@@ -1,5 +1,9 @@
+import type { Span } from '@opentelemetry/api';
 import type { RefObject } from 'react';
 import type WebView from 'react-native-webview';
+import { BoltAttributes } from '../telemetry/attributes';
+import { logger } from '../telemetry/logger';
+import { SpanStatusCode, startSpan } from '../telemetry/tracer';
 
 export interface BridgeEnvelope {
   __boltBridge: true;
@@ -30,16 +34,11 @@ export class BoltBridgeDispatcher {
   private messageListeners: MessageListener[] = [];
   private portListeners: Map<string, PortMessageListener> = new Map();
   private readyListeners: Array<() => void> = [];
-  public debug = typeof __DEV__ !== 'undefined' && __DEV__;
+  private bridgeReadySpan: Span | undefined;
 
   constructor(webViewRef: RefObject<WebView | null>) {
     this.webViewRef = webViewRef;
-  }
-
-  private log(...args: unknown[]): void {
-    if (this.debug) {
-      console.log('[BoltBridge]', ...args);
-    }
+    this.bridgeReadySpan = startSpan('bolt.bridge.ready');
   }
 
   /**
@@ -54,7 +53,9 @@ export class BoltBridgeDispatcher {
       parsed = JSON.parse(raw);
     } catch {
       // Not JSON — forward as raw Bolt message
-      this.log('← raw (non-JSON) message');
+      logger.debug('Received raw (non-JSON) message', {
+        [BoltAttributes.BRIDGE_DIRECTION]: 'inbound',
+      });
       this.notifyMessageListeners(raw);
       return;
     }
@@ -64,11 +65,16 @@ export class BoltBridgeDispatcher {
       parsed !== null &&
       '__boltBridge' in parsed
     ) {
-      this.log('← envelope:', (parsed as BridgeEnvelope).type);
+      logger.debug('Received envelope', {
+        [BoltAttributes.BRIDGE_MESSAGE_TYPE]: (parsed as BridgeEnvelope).type,
+        [BoltAttributes.BRIDGE_DIRECTION]: 'inbound',
+      });
       this.handleEnvelope(parsed as BridgeEnvelope);
     } else {
       // Valid JSON but not a bridge envelope — it's a Bolt message
-      this.log('← bolt message');
+      logger.debug('Received bolt message', {
+        [BoltAttributes.BRIDGE_DIRECTION]: 'inbound',
+      });
       this.notifyMessageListeners(raw);
     }
   };
@@ -87,12 +93,18 @@ export class BoltBridgeDispatcher {
     };
 
     if (!this.ready) {
-      this.log('→ queued (bridge not ready)');
+      logger.debug('Message queued (bridge not ready)', {
+        [BoltAttributes.BRIDGE_MESSAGE_TYPE]: envelope.type,
+        [BoltAttributes.BRIDGE_DIRECTION]: 'outbound',
+      });
       this.pendingMessages.push(envelope);
       return;
     }
 
-    this.log('→ sending:', envelope.type);
+    logger.debug('Sending message', {
+      [BoltAttributes.BRIDGE_MESSAGE_TYPE]: envelope.type,
+      [BoltAttributes.BRIDGE_DIRECTION]: 'outbound',
+    });
     this.injectEnvelope(envelope);
   }
 
@@ -150,8 +162,16 @@ export class BoltBridgeDispatcher {
    * Reset the dispatcher state (e.g., when WebView reloads).
    */
   reset(): void {
+    if (this.bridgeReadySpan) {
+      this.bridgeReadySpan.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: 'Bridge reset before ready',
+      });
+      this.bridgeReadySpan.end();
+    }
     this.ready = false;
     this.pendingMessages = [];
+    this.bridgeReadySpan = startSpan('bolt.bridge.ready');
   }
 
   // ── Private ──────────────────────────────────────────────
@@ -160,15 +180,22 @@ export class BoltBridgeDispatcher {
     switch (envelope.type) {
       case 'bridgeReady':
         if (this.ready) {
-          this.log('bridge already ready, ignoring duplicate bridgeReady');
+          logger.debug('Bridge already ready, ignoring duplicate bridgeReady');
           break;
         }
-        this.log(
-          'bridge ready, flushing',
-          this.pendingMessages.length,
-          'pending messages'
-        );
+        logger.debug('Bridge ready, flushing pending messages', {
+          pendingCount: this.pendingMessages.length,
+        });
         this.ready = true;
+        if (this.bridgeReadySpan) {
+          this.bridgeReadySpan.setAttribute(
+            'bolt.bridge.pending_count',
+            this.pendingMessages.length
+          );
+          this.bridgeReadySpan.setStatus({ code: SpanStatusCode.OK });
+          this.bridgeReadySpan.end();
+          this.bridgeReadySpan = undefined;
+        }
         this.flushPendingMessages();
         for (const listener of this.readyListeners) {
           listener();
@@ -196,7 +223,10 @@ export class BoltBridgeDispatcher {
       try {
         listener(data, virtualPortId);
       } catch (err) {
-        console.error('[BoltBridgeDispatcher] Error in message listener:', err);
+        logger.error('Error in message listener', {
+          [BoltAttributes.ERROR_MESSAGE]:
+            err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }
