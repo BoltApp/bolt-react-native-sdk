@@ -206,6 +206,30 @@ export const INJECTED_BRIDGE_JS = `
     }
   }
 
+  // ── Forward real DOM message events from sub-iframes ────
+  // Sub-iframes (e.g., Cardinal Commerce DDC) use real postMessage to
+  // communicate with the top frame. Since we intercepted addEventListener,
+  // those events won't reach the captured listeners unless we forward them.
+  originalAddEventListener('message', function(event) {
+    // Skip bridge envelopes — those are handled by __boltBridgeReceive
+    if (event.data && typeof event.data === 'object' && event.data.__boltBridge) return;
+    if (typeof event.data === 'string') {
+      try {
+        var parsed = JSON.parse(event.data);
+        if (parsed && parsed.__boltBridge) return;
+      } catch(e) {}
+    }
+
+    // Forward the real event to all captured message listeners
+    for (var i = 0; i < messageListeners.length; i++) {
+      try {
+        messageListeners[i](event);
+      } catch (err) {
+        console.error('[BoltBridge] Error in message listener (forwarded):', err);
+      }
+    }
+  });
+
   // ── Receive messages from React Native ───────────────────
 
   // React Native sends messages by evaluating JS on the WebView.

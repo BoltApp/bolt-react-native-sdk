@@ -24,7 +24,9 @@ import type {
 // Initialize Bolt with your publishable key
 const bolt = new Bolt({
   publishableKey:
-    'yayzpqS9Y7Qb.MBLn0CaZCM7I.aa226a2b80c3aac19300f82dc6be8e92c91b8df1d527311a79e8b190af1f6b2b',
+    // 3ds:
+    'tFb8YsxCSGSb.fS3kkcd6a-tl.713c7e045966cb916ccf42ba5becfcebf1a3a8042584bbac5cc74f8a8feebd2b',
+  //'yayzpqS9Y7Qb.MBLn0CaZCM7I.aa226a2b80c3aac19300f82dc6be8e92c91b8df1d527311a79e8b190af1f6b2b',
   environment: 'staging',
 });
 
@@ -43,9 +45,8 @@ bolt.configureOnPageStyles({
 
 const AddCardScreen = () => {
   const cc = CreditCard.useController({
-    styles: {
-      '--bolt-input-backgroundColor': '#fafafa',
-    },
+    styles: { '--bolt-input-backgroundColor': '#fafafa' },
+    showBillingZIPField: true,
   });
   const threeDSecure = useThreeDSecure();
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null);

@@ -66,9 +66,7 @@ describe('useThreeDSecure - fetchReferenceID', () => {
       dispatcher.sendMessage(
         JSON.stringify({
           type: 'FetchReferenceID',
-          token: 'tok_123',
-          bin: '411111',
-          last4: '1111',
+          creditCard: { token: 'tok_123', bin: '411111', last4: '1111' },
         })
       );
       unsub();
@@ -80,17 +78,16 @@ describe('useThreeDSecure - fetchReferenceID', () => {
     expect(sent.data).toBeDefined();
     const payload = JSON.parse(sent.data);
     expect(payload.type).toBe('FetchReferenceID');
-    expect(payload.token).toBe('tok_123');
-    expect(payload.bin).toBe('411111');
-    expect(payload.last4).toBe('1111');
+    expect(payload.creditCard.token).toBe('tok_123');
+    expect(payload.creditCard.bin).toBe('411111');
+    expect(payload.creditCard.last4).toBe('1111');
   });
 
   it('should send FetchReferenceID with credit card id fields', () => {
     dispatcher.sendMessage(
       JSON.stringify({
         type: 'FetchReferenceID',
-        id: 'cc_abc123',
-        expiration: '2028-12',
+        creditCard: { id: 'cc_abc123', expiration: '2028-12' },
       })
     );
 
@@ -98,26 +95,30 @@ describe('useThreeDSecure - fetchReferenceID', () => {
     const sent = JSON.parse(sentMessages[0]!);
     const payload = JSON.parse(sent.data);
     expect(payload.type).toBe('FetchReferenceID');
-    expect(payload.id).toBe('cc_abc123');
-    expect(payload.expiration).toBe('2028-12');
+    expect(payload.creditCard.id).toBe('cc_abc123');
+    expect(payload.creditCard.expiration).toBe('2028-12');
   });
 
   it('should resolve with referenceID on VerificationIDResult', (done) => {
-    let messageHandler: ((data: unknown) => void) | null = () => {
-      // mock
-    };
-
-    dispatcher.onMessage((data) => {
-      if (messageHandler) messageHandler(data);
-    });
-
-    // Simulate the iframe sending a VerificationIDResult
+    // Simulate the iframe sending a VerificationIDResult with errorCode: -1
+    // (Cardinal convention for "no error")
     const responseMessage = JSON.stringify({
       type: 'VerificationIDResult',
-      referenceID: 'ref_3ds_abc123',
+      success: 'ref_3ds_abc123',
+      errorCode: -1,
     });
 
-    // Simulate receiving the message from the WebView
+    const unsub = dispatcher.onMessage((data) => {
+      const parsed =
+        typeof data === 'string' ? JSON.parse(data as string) : data;
+      if (parsed.type === 'VerificationIDResult') {
+        expect(parsed.success).toBe('ref_3ds_abc123');
+        expect(parsed.errorCode).toBe(-1);
+        unsub();
+        done();
+      }
+    });
+
     dispatcher.handleMessage({
       nativeEvent: {
         data: JSON.stringify({
@@ -128,26 +129,33 @@ describe('useThreeDSecure - fetchReferenceID', () => {
         }),
       },
     });
+  });
 
-    // Verify the listener receives the message
+  it('should propagate Result error when DDC JWT call fails', (done) => {
+    // When the DDC JWT API call fails, storm sends { type: "Result", success: false, errorCode: 1010 }
+    // instead of a VerificationIDResult. fetchReferenceID must handle this.
     const unsub = dispatcher.onMessage((data) => {
       const parsed =
         typeof data === 'string' ? JSON.parse(data as string) : data;
-      if (parsed.type === 'VerificationIDResult') {
-        expect(parsed.referenceID).toBe('ref_3ds_abc123');
+      if (parsed.type === 'Result') {
+        expect(parsed.success).toBe(false);
+        expect(parsed.errorCode).toBe(1010);
         unsub();
         done();
       }
     });
 
-    // Re-emit the message so the new listener catches it
     dispatcher.handleMessage({
       nativeEvent: {
         data: JSON.stringify({
           __boltBridge: true,
           direction: 'outbound',
           type: 'postMessage',
-          data: responseMessage,
+          data: JSON.stringify({
+            type: 'Result',
+            success: false,
+            errorCode: 1010,
+          }),
         }),
       },
     });
@@ -217,9 +225,11 @@ describe('useThreeDSecure - challengeWithConfig', () => {
       JSON.stringify({
         type: 'TriggerAuthWithConfig',
         orderToken: 'order_123',
-        referenceID: 'ref_3ds_abc',
-        jwtPayload: 'jwt.payload.here',
-        stepUpUrl: 'https://example.com/stepup',
+        config: {
+          referenceID: 'ref_3ds_abc',
+          jwtPayload: 'jwt.payload.here',
+          stepUpUrl: 'https://example.com/stepup',
+        },
       })
     );
 
@@ -228,9 +238,9 @@ describe('useThreeDSecure - challengeWithConfig', () => {
     const payload = JSON.parse(sent.data);
     expect(payload.type).toBe('TriggerAuthWithConfig');
     expect(payload.orderToken).toBe('order_123');
-    expect(payload.referenceID).toBe('ref_3ds_abc');
-    expect(payload.jwtPayload).toBe('jwt.payload.here');
-    expect(payload.stepUpUrl).toBe('https://example.com/stepup');
+    expect(payload.config.referenceID).toBe('ref_3ds_abc');
+    expect(payload.config.jwtPayload).toBe('jwt.payload.here');
+    expect(payload.config.stepUpUrl).toBe('https://example.com/stepup');
   });
 
   it('should receive success Result from 3DS challenge', (done) => {
@@ -366,7 +376,7 @@ describe('useThreeDSecure - 3DS bootstrap flow integration', () => {
       receivedMessages.push(parsed as Record<string, unknown>);
 
       if (parsed.type === 'VerificationIDResult') {
-        expect(parsed.referenceID).toBe('ref_3ds_bootstrap_123');
+        expect(parsed.success).toBe('ref_3ds_bootstrap_123');
         expect(receivedMessages).toHaveLength(1);
         unsub();
         done();
@@ -377,9 +387,7 @@ describe('useThreeDSecure - 3DS bootstrap flow integration', () => {
     dispatcher.sendMessage(
       JSON.stringify({
         type: 'FetchReferenceID',
-        token: 'tok_card_abc',
-        bin: '411111',
-        last4: '1111',
+        creditCard: { token: 'tok_card_abc', bin: '411111', last4: '1111' },
       })
     );
 
@@ -392,7 +400,7 @@ describe('useThreeDSecure - 3DS bootstrap flow integration', () => {
           type: 'postMessage',
           data: JSON.stringify({
             type: 'VerificationIDResult',
-            referenceID: 'ref_3ds_bootstrap_123',
+            success: 'ref_3ds_bootstrap_123',
           }),
         }),
       },
@@ -413,9 +421,11 @@ describe('useThreeDSecure - 3DS bootstrap flow integration', () => {
           JSON.stringify({
             type: 'TriggerAuthWithConfig',
             orderToken: 'order_bootstrap_1',
-            referenceID: parsed.referenceID,
-            jwtPayload: 'jwt.test.payload',
-            stepUpUrl: 'https://test.cardinal.com/stepup',
+            config: {
+              referenceID: parsed.success,
+              jwtPayload: 'jwt.test.payload',
+              stepUpUrl: 'https://test.cardinal.com/stepup',
+            },
           })
         );
 
@@ -443,7 +453,7 @@ describe('useThreeDSecure - 3DS bootstrap flow integration', () => {
         const msg2 = JSON.parse(JSON.parse(sentMessages[1]!).data);
         expect(msg1.type).toBe('FetchReferenceID');
         expect(msg2.type).toBe('TriggerAuthWithConfig');
-        expect(msg2.referenceID).toBe('ref_3ds_full_flow');
+        expect(msg2.config.referenceID).toBe('ref_3ds_full_flow');
         unsub();
         done();
       }
@@ -453,9 +463,7 @@ describe('useThreeDSecure - 3DS bootstrap flow integration', () => {
     dispatcher.sendMessage(
       JSON.stringify({
         type: 'FetchReferenceID',
-        token: 'tok_full_flow',
-        bin: '411111',
-        last4: '1111',
+        creditCard: { token: 'tok_full_flow', bin: '411111', last4: '1111' },
       })
     );
 
@@ -467,7 +475,7 @@ describe('useThreeDSecure - 3DS bootstrap flow integration', () => {
           type: 'postMessage',
           data: JSON.stringify({
             type: 'VerificationIDResult',
-            referenceID: 'ref_3ds_full_flow',
+            success: 'ref_3ds_full_flow',
           }),
         }),
       },

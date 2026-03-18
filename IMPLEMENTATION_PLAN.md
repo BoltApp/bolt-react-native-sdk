@@ -2,19 +2,20 @@
 
 ## Status Summary
 
-| Phase                                   | Status                                                                     |
-| --------------------------------------- | -------------------------------------------------------------------------- |
-| Phase 1: Infrastructure & Configuration | ✅ Complete                                                                |
-| Phase 2: WebView Bridge (2.1-2.4)       | ✅ Complete                                                                |
-| Phase 2.5: Storm-Side Changes           | ⏸️ Deferred — only if injected bridge fails on target devices              |
-| Phase 3: Credit Card Component          | ✅ Complete (core messages + field events; `setPort` deferred — not needed for tokenization) |
-| Phase 4: 3D Secure Component            | ✅ Complete                                                                |
-| Phase 5: Digital Wallets                | ✅ Code written — needs physical device testing                            |
-| Phase 6: Integration & QA               | Partial — example app built, E2E/device testing pending                    |
-| Phase 7: End-to-End Flows               | ✅ Code complete — remaining items need backend E2E / device testing       |
-| File structure                          | ✅ All 24 planned files created                                            |
-| TypeScript                              | ✅ Compiles cleanly (strict mode)                                          |
-| Unit tests                              | ✅ 89 tests passing                                                        |
+| Phase                                       | Status                                                                                       |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Phase 1: Infrastructure & Configuration     | ✅ Complete                                                                                  |
+| Phase 2: WebView Bridge (2.1-2.4)           | ✅ Complete                                                                                  |
+| Phase 2.5: Storm-Side Changes               | ⏸️ Deferred — only if injected bridge fails on target devices                                |
+| Phase 3: Credit Card Component              | ✅ Complete (core messages + field events; `setPort` deferred — not needed for tokenization) |
+| Phase 4: 3D Secure Component                | ✅ Complete                                                                                  |
+| Phase 5: Digital Wallets                    | ✅ Code written — needs physical device testing                                              |
+| Phase 6: Integration & QA                   | Partial — example app built, E2E/device testing pending                                      |
+| Phase 7: End-to-End Flows                   | ✅ Code complete — remaining items need backend E2E / device testing                         |
+| Phase 8: Postal Code Field (via PCI iframe) | ✅ Complete                                                                                  |
+| File structure                              | ✅ All 24 planned files created                                                              |
+| TypeScript                                  | ✅ Compiles cleanly (strict mode)                                                            |
+| Unit tests                                  | ✅ 89 tests passing                                                                          |
 
 **Remaining work:**
 
@@ -24,6 +25,8 @@
 - Physical device testing for Apple Pay and Google Pay
 - Token format verification against Bolt's add-card API (backend E2E)
 - App store compliance review
+- Stripe test card verification
+- Connected merchant sandbox setup (external dependency — Himanshu to share APIs)
 
 ---
 
@@ -99,6 +102,21 @@ The storm embedded SDK (`source/storm`) renders credit card fields inside secure
 - Preserves PCI compliance (card data stays in connect.bolt.com WebView)
 - Reuses all existing validation, tokenization, and 3DS challenge UI
 - Gets automatic updates when the web components are updated (no app store redeploy)
+
+### Future: Native Card Input Migration
+
+The current WebView-based approach is acceptable for v1, but the long-term plan is to phase out WebViews for credit card input. Three options with PCI trade-offs:
+
+**Option A: Bolt-hosted native SDK (recommended long-term path)**
+Bolt builds native iOS/Android card input SDKs (similar to Stripe's `STPPaymentCardTextField`). The RN SDK wraps these via TurboModules. PCI scope stays entirely with Bolt — merchants remain SAQ A. This is the cleanest path but requires significant investment from Bolt's platform team.
+
+**Option B: Direct API tokenization**
+Native `TextInput` components in the RN SDK send card data directly to Bolt's tokenization endpoint over TLS. This puts the merchant's app in PCI scope (SAQ A-EP or SAQ D depending on implementation). Most merchants want to avoid this compliance burden.
+
+**Option C: Lightweight JS tokenization bundle**
+Replace the full iframe with a minimal WebView running a tokenization-only JS bundle. Lighter than the current approach but still WebView-based — doesn't fully eliminate the WebView dependency.
+
+**Current status:** WebView approach is shipping in v1. Native migration is a future initiative, not blocking current work.
 
 ### Why Native for Apple Pay / Google Pay
 
@@ -360,7 +378,7 @@ https://connect.bolt.com/src/iframes/{element}/index.html?
   &l={language}
   &mcid={merchantClientId}
   &checkoutPageID={uuid}
-  &transport=rn-webview          ← NEW: signals RN environment
+  &transport=rn-webview           ← NEW: signals RN environment
 ```
 
 #### 2.5 — Storm-Side Changes (for reliability) — NOT STARTED (external dependency)
@@ -380,16 +398,16 @@ These changes are minimal, safe, and backward-compatible — the `isReactNativeW
 
 Implements the controller pattern from Alan's spec with message flow:
 
-| Direction    | Message                           | When                      | Implemented |
-| ------------ | --------------------------------- | ------------------------- | ----------- |
-| Frame → Host | `CreditCard.FrameInitialized`     | WebView content loaded    | ✅          |
-| Host → Frame | `SetConfig`                       | After init, sends options | ✅          |
+| Direction    | Message                           | When                                                                                                   | Implemented |
+| ------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------- |
+| Frame → Host | `CreditCard.FrameInitialized`     | WebView content loaded                                                                                 | ✅          |
+| Host → Frame | `SetConfig`                       | After init, sends options                                                                              | ✅          |
 | Host → Frame | `setPort` (with virtual port)     | RPC channel (low priority — only for `loadMerchantDetails()` + analytics, NOT needed for tokenization) | ⏸️ Deferred |
-| Frame → Host | `Focus`, `Blur`, `Valid`, `Error` | Field events              | ✅          |
-| Frame → Host | `SetIFrameHeight`                 | Auto-size WebView height  | ✅          |
-| Host → Frame | `GetToken`                        | When `tokenize()` called  | ✅          |
-| Frame → Host | `GetTokenReply`                   | Tokenization result       | ✅          |
-| Host → Frame | `SetStyles`                       | When `setStyles()` called | ✅          |
+| Frame → Host | `Focus`, `Blur`, `Valid`, `Error` | Field events                                                                                           | ✅          |
+| Frame → Host | `SetIFrameHeight`                 | Auto-size WebView height                                                                               | ✅          |
+| Host → Frame | `GetToken`                        | When `tokenize()` called                                                                               | ✅          |
+| Frame → Host | `GetTokenReply`                   | Tokenization result                                                                                    | ✅          |
+| Host → Frame | `SetStyles`                       | When `setStyles()` called                                                                              | ✅          |
 
 ### Phase 4: 3D Secure Component (3 days – 1 week) — COMPLETE
 
@@ -420,6 +438,7 @@ Apple Pay and Google Pay cannot use WebViews — they require native platform AP
 - [ ] Test Google Pay on physical Android device with test account
 - [ ] App store compliance review for wallet payment provisioning
 - [ ] Evaluate webview Apple Pay alternative vs native TurboModule
+- [ ] Document Apple Pay merchant setup: Apple Developer Merchant ID registration + entitlements configuration
 
 ### Phase 6: Integration & QA (1-3 weeks) — PARTIALLY COMPLETE
 
@@ -429,6 +448,9 @@ Apple Pay and Google Pay cannot use WebViews — they require native platform AP
 - [ ] Test error states (invalid card, network timeout, 3DS failure)
 - [ ] Regression testing on both iOS and Android
 - [ ] App store compliance review preparation
+- [ ] Verify Stripe test cards work with credit card input WebView
+- [ ] Set up connected merchant sandbox (depends on Himanshu sharing APIs)
+- [ ] Test with 3DS now re-enabled on V3 payments (enabled 2026-03-18)
 
 ### Phase 7: End-to-End Flows — IN PROGRESS
 
@@ -447,6 +469,7 @@ Per requirements, 3DS authentication is needed at card-addition time to shift li
 **SDK impact:** Our existing `fetchReferenceID()` and `challengeWithConfig()` already support this. The SDK work is ensuring the example app demonstrates this flow and that the 3DS component can be triggered independently of a "real" payment (i.e., for a $1 bootstrap auth).
 
 **Status:**
+
 - ✅ Example app demonstrates tokenize → fetchReferenceID → (commented) challengeWithConfig flow
 - ✅ Message flow unit tests: `useThreeDSecure.test.tsx` (FetchReferenceID → VerificationIDResult, TriggerAuthWithConfig → Result, full bootstrap sequence, input validation, error codes)
 - ✅ Tokenization flow tests: `useCreditCardController.test.ts` (GetToken → GetTokenReply success/error, field events, SetConfig, SetStyles, parseBoltMessage, validation error codes)
@@ -466,6 +489,7 @@ Storm's web elements (`add-card-from-apple-wallet`, `add-card-from-google-wallet
 - **Bolt account creation:** When a shopper pays with Apple Pay for the first time, Bolt generates an account using the email from the Apple Pay response.
 
 **Status:**
+
 - ✅ Billing contact fields collected (email, phone, name, postal address) — both Apple Pay and Google Pay
 - ✅ `boltReference` field returned from both Apple Pay (`ApplePayResult.boltReference`) and Google Pay (`GooglePayResult.boltReference`) — extracted from Bolt tokenize API response
 - ✅ `onComplete` result shape matches requirements for both platforms
@@ -489,6 +513,7 @@ The Tokenizer Proxy (`POST /v1/tokenizer/proxy`) allows merchants to use Bolt to
 **No SDK changes needed**, but documentation/example should show the expected backend integration.
 
 **Status:**
+
 - ✅ Example app shows both V3 Payments and Tokenizer Proxy paths in commented backend integration steps
 - [ ] E2E verification that `tokenize()` output works with Tokenizer Proxy (requires backend test)
 
@@ -512,6 +537,7 @@ Per requirements, the merchant must maintain shopper wallets in their own app UI
 6. To add via Apple Pay: SDK `ApplePay` component → `onComplete` → merchant backend adds card via API
 
 **Status:**
+
 - ✅ Example app "Wallet" tab shows saved cards list (mock data matching `GET /v3/account` response shape)
 - ✅ "Pay with Saved Card" demonstrates using `credit_card_id` with V3 Payments or Tokenizer Proxy
 - ✅ "Add Card" tab demonstrates full card addition + 3DS bootstrap flow
@@ -548,6 +574,7 @@ App auth → Bolt Merchant Shopper Login (existing account)
 ```
 
 **Status:**
+
 - ✅ All three shopper flows documented as inline comments in example app
 - ✅ Example app structure demonstrates the flows (Add Card tab = Flow 2, Wallet tab = Flow 1/3)
 
@@ -568,23 +595,53 @@ For shoppers without a Bolt account who decline to create one, the Bolt API supp
 **SDK impact:** No additional SDK components needed. The SDK provides the token via `tokenize()`, the merchant backend handles the guest payment API call.
 
 **Status:**
+
 - ✅ "Guest Payment Flow" button in example app Wallet tab shows the complete guest payment sequence
 - ✅ No SDK changes needed — `tokenize()` output is compatible with guest payments
+
+### Phase 8: Postal Code Field (via PCI iframe) — ✅ COMPLETE
+
+Postal code is **billing address data** — Storm's embed treats it as PCI-sensitive and renders it inside the sandboxed `__PCI__CreditCardInput` iframe alongside CCN/CVV. A native `TextInput` approach would move it outside the PCI boundary. Instead, Phase 8 exposes Storm's existing `CardPostalField` via a `showBillingZIPField` config flag passed through `SetConfig`.
+
+**How it works:**
+
+- `CreditCard.useController({ showBillingZIPField: true })` sends `showBillingZIPField: true` in the `SetConfig` message on `FrameInitialized`
+- Storm's iframe reducer spreads config into state → `CreditCardFields` renders `CardPostalField` (the existing PCI-sandboxed postal input)
+- Postal code is validated inside the iframe (error codes 1003/2003)
+- Returned as `postal_code` in `TokenResult` via `ccPostal` in `GetTokenReply`
+
+**Files modified:**
+
+- **`src/payments/useCreditCardController.ts`** — `showBillingZIPField?: boolean` added to `CreditCardControllerOptions`; wired into `SetConfig` message
+- **`example/src/App.tsx`** — `showBillingZIPField: true` in `CreditCard.useController()` options
+
+**Checklist:**
+
+- ✅ `showBillingZIPField` added to `CreditCardControllerOptions`
+- ✅ Wired through `SetConfig` to Storm's iframe on `FrameInitialized`
+- ✅ Example app integration
+- ✅ Unit test: `SetConfig` carries `showBillingZIPField: true`
+- [ ] Storm-side fix: `GetTokenReply` must include `ccPostal` when the field is shown (currently omitted — Storm sends only `token` in the reply)
 
 ---
 
 ## Open Questions & Dependencies
 
-| Question                                                             | Owner           | Status                                               |
-| -------------------------------------------------------------------- | --------------- | ---------------------------------------------------- |
-| Can Bolt support 3DS at add-card time ($0 auth)?                     | Bolt backend    | Confirmed NO currently — merchant using $1 bootstrap |
-| Can void of $1 auth be async to reduce latency?                      | Bolt backend    | Under discussion                                     |
-| Webview Apple Pay vs native TurboModule — pick one or both?          | SDK team + Bolt | Webview target 9/15, native TBD                      |
-| Is Google Pay required or is Apple Pay enough?                       | Merchant        | TBD                                                  |
-| How to handle email for unrecognized shoppers (phone-only accounts)? | Bolt + Merchant | Under discussion                                     |
-| Ignite API support for Bolt Connect?                                 | Bolt backend    | 9/15 target                                          |
-| Tokenizer Proxy revenue/fee model for proxied payments?              | Bolt biz        | Under discussion                                     |
-| Bolt Connect onboarding docs ready?                                  | Bolt docs       | 9/15 target                                          |
+| Question                                                             | Owner           | Status                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------------------------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Can Bolt support 3DS at add-card time ($0 auth)?                     | Bolt backend    | Confirmed NO currently — merchant using $1 bootstrap                                                                                                                                                                                                                                                                                                                                                                 |
+| Can void of $1 auth be async to reduce latency?                      | Bolt backend    | Under discussion                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 3DS on V3 payments                                                   | Bolt backend    | ✅ RESOLVED — Himanshu enabled 3DS on V3 payments (2026-03-18)                                                                                                                                                                                                                                                                                                                                                       |
+| Webview Apple Pay vs native TurboModule — pick one or both?          | SDK team + Bolt | Webview target 9/15, native TBD                                                                                                                                                                                                                                                                                                                                                                                      |
+| Is Google Pay required or is Apple Pay enough?                       | Merchant        | TBD                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| How to handle email for unrecognized shoppers (phone-only accounts)? | Bolt + Merchant | Under discussion                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Ignite API support for Bolt Connect?                                 | Bolt backend    | 9/15 target                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Tokenizer Proxy revenue/fee model for proxied payments?              | Bolt biz        | Under discussion                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Bolt Connect onboarding docs ready?                                  | Bolt docs       | 9/15 target                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Apple Pay certificate requirement (like Stripe)?                     | Shanjana / Rhys | PARTIALLY RESOLVED — Yes, merchants need Apple Pay Merchant ID in Apple Developer portal (SDK requires `ApplePayConfig.merchantId`). Bolt handles merchant validation via `/v1/applepay/validate_merchant`. **Remaining:** Does Bolt require a CSR exchange from the merchant (like Stripe) for the Payment Processing Certificate, or does Bolt manage it entirely? Shanjana checking with Rhys (raised 2026-03-18) |
+| Merchant-scoped long-term tokens                                     | Bolt backend    | Feature under review — could change how saved cards are referenced                                                                                                                                                                                                                                                                                                                                                   |
+| Connected merchant sandbox APIs                                      | Himanshu        | Himanshu to share APIs for sub-merchant setup; testing dependency for E2E                                                                                                                                                                                                                                                                                                                                            |
+| PCI compliance Stripe contact                                        | Team            | Establishing direct Stripe contact; Bolt is PCI provider                                                                                                                                                                                                                                                                                                                                                             |
 
 ---
 
@@ -594,9 +651,9 @@ Only needed if the injected bridge (`injectedBridge.ts`) fails on target devices
 
 | File                                 | Change                                                    | Risk | Status |
 | ------------------------------------ | --------------------------------------------------------- | ---- | ------ |
-| `libs/base/utils/Parent.ts`          | Add `isReactNativeWebView()`, update `getParent()`        | Low  | ⏸️    |
-| `libs/base/messaging/Listener.ts`    | Skip origin validation in RN WebView                      | Low  | ⏸️    |
-| `libs/base/messaging/PostMessage.ts` | Route `safePost` through `ReactNativeWebView.postMessage` | Low  | ⏸️    |
+| `libs/base/utils/Parent.ts`          | Add `isReactNativeWebView()`, update `getParent()`        | Low  | ⏸️     |
+| `libs/base/messaging/Listener.ts`    | Skip origin validation in RN WebView                      | Low  | ⏸️     |
+| `libs/base/messaging/PostMessage.ts` | Route `safePost` through `ReactNativeWebView.postMessage` | Low  | ⏸️     |
 
 **Decision:** Test injected bridge on physical devices first. If it works reliably, these changes are unnecessary.
 
@@ -618,17 +675,17 @@ Only needed if the injected bridge (`injectedBridge.ts`) fails on target devices
 
 ## Risks & Mitigations
 
-| Risk                                                    | Impact | Mitigation                                                       |
-| ------------------------------------------------------- | ------ | ---------------------------------------------------------------- |
-| `window.parent` override fails on some WebView engines  | High   | Storm-side changes provide reliable fallback                     |
-| CSP on connect.bolt.com blocks injected JS              | High   | `injectedJavaScriptBeforeContentLoaded` runs pre-CSP             |
-| Apple/Google Pay complexity                             | High   | Budget 4-8 weeks; get device access early                        |
-| Apple Pay token format incompatible with add-card API   | High   | Verify early; webview Apple Pay is fallback (9/15 target)        |
-| $0 auth doesn't support 3DS (forces $1 bootstrap)       | Medium | Workaround in place; track backend support for $0+3DS            |
-| Tokenizer Proxy issues (currently being debugged) | High   | Active work with merchant to unblock                             |
-| WebView cold start performance                          | Medium | Preload WebView on app init                                      |
-| Keyboard handling in WebView                            | Medium | `keyboardDisplayRequiresUserAction={false}`, auto-resize         |
-| Screenshot/screen recording of card data                | Medium | Research `FLAG_SECURE` (Android) and screenshot prevention (iOS) |
+| Risk                                                   | Impact | Mitigation                                                       |
+| ------------------------------------------------------ | ------ | ---------------------------------------------------------------- |
+| `window.parent` override fails on some WebView engines | High   | Storm-side changes provide reliable fallback                     |
+| CSP on connect.bolt.com blocks injected JS             | High   | `injectedJavaScriptBeforeContentLoaded` runs pre-CSP             |
+| Apple/Google Pay complexity                            | High   | Budget 4-8 weeks; get device access early                        |
+| Apple Pay token format incompatible with add-card API  | High   | Verify early; webview Apple Pay is fallback (9/15 target)        |
+| $0 auth doesn't support 3DS (forces $1 bootstrap)      | Medium | Workaround in place; track backend support for $0+3DS            |
+| Tokenizer Proxy issues (currently being debugged)      | High   | Active work with merchant to unblock                             |
+| WebView cold start performance                         | Medium | Preload WebView on app init                                      |
+| Keyboard handling in WebView                           | Medium | `keyboardDisplayRequiresUserAction={false}`, auto-resize         |
+| Screenshot/screen recording of card data               | Medium | Research `FLAG_SECURE` (Android) and screenshot prevention (iOS) |
 
 ---
 
