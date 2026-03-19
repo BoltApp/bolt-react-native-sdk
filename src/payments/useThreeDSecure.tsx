@@ -88,8 +88,9 @@ export const useThreeDSecure = (): UseThreeDSecureReturn => {
             clearTimeout(timeout);
             unsub();
 
-            if (msg.errorCode) {
-              reject(new ThreeDSError(Number(msg.errorCode)));
+            const errorCode = Number(msg.errorCode ?? 0);
+            if (errorCode > 0) {
+              reject(new ThreeDSError(errorCode));
               return;
             }
 
@@ -98,23 +99,31 @@ export const useThreeDSecure = (): UseThreeDSecureReturn => {
               return;
             }
 
-            resolve(String(msg.referenceID ?? msg.verificationId ?? ''));
+            resolve(String(msg.success ?? ''));
+          }
+
+          // Storm sends Result (not VerificationIDResult) when the DDC JWT
+          // API call itself fails — treat as an immediate error.
+          if (msg.type === 'Result' && msg.success === false) {
+            clearTimeout(timeout);
+            unsub();
+            reject(new ThreeDSError(Number(msg.errorCode ?? 1010)));
           }
         });
 
-        const payload: Record<string, unknown> = {
-          type: 'FetchReferenceID',
-        };
-        if ('id' in creditCardInfo) {
-          payload.id = creditCardInfo.id;
-          payload.expiration = creditCardInfo.expiration;
-        } else {
-          payload.token = creditCardInfo.token;
-          payload.bin = creditCardInfo.bin;
-          payload.last4 = creditCardInfo.last4;
-        }
+        const creditCard =
+          'id' in creditCardInfo
+            ? { id: creditCardInfo.id, expiration: creditCardInfo.expiration }
+            : {
+                token: creditCardInfo.token,
+                bin: creditCardInfo.bin,
+                last4: creditCardInfo.last4,
+                expiration: creditCardInfo.expiration,
+              };
 
-        dispatcher.sendMessage(JSON.stringify(payload));
+        dispatcher.sendMessage(
+          JSON.stringify({ type: 'FetchReferenceID', creditCard })
+        );
       });
     },
     [dispatcher]
@@ -155,9 +164,11 @@ export const useThreeDSecure = (): UseThreeDSecureReturn => {
           JSON.stringify({
             type: 'TriggerAuthWithConfig',
             orderToken,
-            referenceID: config.referenceID,
-            jwtPayload: config.jwtPayload,
-            stepUpUrl: config.stepUpUrl,
+            config: {
+              referenceID: config.referenceID,
+              jwtPayload: config.jwtPayload,
+              stepUpUrl: config.stepUpUrl,
+            },
           })
         );
       });

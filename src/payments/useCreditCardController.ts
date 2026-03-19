@@ -41,6 +41,13 @@ export interface CreditCardController {
 
 export interface CreditCardControllerOptions {
   styles?: Styles;
+  /**
+   * Show the billing ZIP / postal code field inside the PCI-sandboxed WebView.
+   * When true, Storm's iframe renders its built-in CardPostalField and the
+   * collected value is returned as `postal_code` in the TokenResult.
+   * Defaults to false.
+   */
+  showBillingZIPField?: boolean;
 }
 
 /**
@@ -84,6 +91,9 @@ export const useCreditCardController = (
                     ? { version: 3, ...onPageStyles }
                     : undefined;
                 })(),
+                ...(optionsRef.current?.showBillingZIPField
+                  ? { showBillingZIPField: true }
+                  : {}),
               },
             })
           );

@@ -57,6 +57,21 @@ describe('CreditCard tokenization message flow', () => {
     expect(payload.type).toBe('GetToken');
   });
 
+  it('should send SetConfig with showBillingZIPField when configured', () => {
+    dispatcher.sendMessage(
+      JSON.stringify({
+        type: 'SetConfig',
+        config: { showBillingZIPField: true },
+      })
+    );
+
+    expect(sentMessages).toHaveLength(1);
+    const sent = JSON.parse(sentMessages[0]!);
+    const payload = JSON.parse(sent.data);
+    expect(payload.type).toBe('SetConfig');
+    expect(payload.config.showBillingZIPField).toBe(true);
+  });
+
   it('should receive successful GetTokenReply with card data', (done) => {
     const unsub = dispatcher.onMessage((data) => {
       const msg = parseBoltMessage(data);

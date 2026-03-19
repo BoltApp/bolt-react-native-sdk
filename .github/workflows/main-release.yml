@@ -9,6 +9,7 @@ jobs:
     # Skip if the push is a release commit (to avoid infinite loop)
     if: "!startsWith(github.event.head_commit.message, 'chore: release')"
     uses: ./.github/workflows/ci.yml
+    name: Lint, Typecheck, Test, Build
 
   release-and-publish:
     name: Release & Publish

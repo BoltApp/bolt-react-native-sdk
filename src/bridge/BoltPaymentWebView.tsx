@@ -116,7 +116,10 @@ export const BoltPaymentWebView = forwardRef<
 
   const handleShouldStartLoad = useCallback(
     (request: ShouldStartLoadRequest): boolean => {
-      // Only allow navigation within the Bolt domain
+      // Allow all sub-frame navigations (e.g., Cardinal Commerce DDC form
+      // submission, 3DS step-up challenge iframe)
+      if (request.isTopFrame === false) return true;
+      // Only restrict top-level navigation to the Bolt domain
       return (
         request.url.startsWith(bolt.baseUrl) || request.url === 'about:blank'
       );
