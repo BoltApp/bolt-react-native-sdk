@@ -12,6 +12,8 @@ import {
   type EventListeners,
 } from './types';
 import type WebView from 'react-native-webview';
+import { startSpan, SpanStatusCode } from '../telemetry/tracer';
+import { BoltAttributes } from '../telemetry/attributes';
 
 /**
  * Controller returned by CreditCard.useController().
@@ -123,6 +125,11 @@ export const useCreditCardController = (
   }, []);
 
   const tokenize = useCallback((): Promise<TokenResult | Error> => {
+    const span = startSpan('bolt.credit_card.tokenize', {
+      [BoltAttributes.PAYMENT_METHOD]: 'credit_card',
+      [BoltAttributes.PAYMENT_OPERATION]: 'tokenize',
+    });
+
     return new Promise((resolve) => {
       let resolved = false;
       let firstError: Error | null = null;
@@ -138,7 +145,10 @@ export const useCreditCardController = (
       const overallTimeout = setTimeout(() => {
         if (resolved) return;
         cleanup();
-        resolve(firstError ?? new Error('Tokenization timed out'));
+        const err = firstError ?? new Error('Tokenization timed out');
+        span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+        span.end();
+        resolve(err);
       }, 30000);
 
       const unsub = dispatcher.onMessage((data) => {
@@ -156,6 +166,8 @@ export const useCreditCardController = (
           !('errorMessage' in token)
         ) {
           cleanup();
+          span.setStatus({ code: SpanStatusCode.OK });
+          span.end();
           resolve({
             token:
               token.token !== undefined && token.token !== null
@@ -205,7 +217,10 @@ export const useCreditCardController = (
         errorDebounce = setTimeout(() => {
           if (resolved) return;
           cleanup();
-          resolve(firstError ?? new Error('Tokenization failed'));
+          const err = firstError ?? new Error('Tokenization failed');
+          span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+          span.end();
+          resolve(err);
         }, 1500);
       });
 

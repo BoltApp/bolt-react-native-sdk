@@ -9,6 +9,8 @@ import {
 import NativeGooglePay from '../native/NativeGooglePay';
 import { useBolt } from '../client/useBolt';
 import type { GooglePayResult, GooglePayConfig } from './types';
+import { startSpan, SpanStatusCode } from '../telemetry/tracer';
+import { BoltAttributes } from '../telemetry/attributes';
 
 export interface GoogleWalletProps {
   config: GooglePayConfig;
@@ -48,6 +50,11 @@ export const GoogleWallet = ({
       return;
     }
 
+    const span = startSpan('bolt.google_pay.request_payment', {
+      [BoltAttributes.PAYMENT_METHOD]: 'google_pay',
+      [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
+    });
+
     try {
       const resultJson = await NativeGooglePay.requestPayment(
         JSON.stringify(config),
@@ -55,11 +62,16 @@ export const GoogleWallet = ({
         bolt.baseUrl
       );
       const result: GooglePayResult = JSON.parse(resultJson);
+      span.setStatus({ code: SpanStatusCode.OK });
+      span.end();
       onComplete(result);
     } catch (err) {
-      onError?.(
-        err instanceof Error ? err : new Error('Google Pay payment failed')
-      );
+      const error =
+        err instanceof Error ? err : new Error('Google Pay payment failed');
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      span.recordException(error);
+      span.end();
+      onError?.(error);
     }
   }, [config, bolt, onComplete, onError]);
 

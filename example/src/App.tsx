@@ -8,7 +8,19 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { Bolt, BoltProvider } from '@boltpay/react-native';
+import {
+  Bolt,
+  BoltProvider,
+  setDevTelemetryConfig,
+} from '@boltpay/react-native';
+import { devTelemetryConfig } from './devTelemetryConfig';
+
+// Local dev only — credentials come from example/src/devTelemetryConfig.ts
+// (gitignored). Run `yarn gen-dev-telemetry-config` to generate it from .env.
+// Set enabled: false in devTelemetryConfig.ts to turn off telemetry locally.
+if (devTelemetryConfig.enabled) {
+  setDevTelemetryConfig(devTelemetryConfig);
+}
 import {
   CreditCard,
   useThreeDSecure,

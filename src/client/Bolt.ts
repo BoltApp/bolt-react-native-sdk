@@ -1,4 +1,6 @@
 import type { Styles } from '../payments/types';
+import { initTelemetry } from '../telemetry/setup';
+import { logger } from '../telemetry/logger';
 
 export interface BoltConfig {
   publishableKey: string;
@@ -28,6 +30,12 @@ export class Bolt {
       ENVIRONMENT_URLS[config.environment ?? 'production'] ??
       ENVIRONMENT_URLS.production!;
     this.language = config.language ?? 'en';
+
+    initTelemetry(config);
+    logger.info('Bolt client initialized', {
+      environment: config.environment ?? 'production',
+      publishableKey: config.publishableKey.slice(0, 8) + '...',
+    });
   }
 
   configureOnPageStyles(styles: Styles): void {

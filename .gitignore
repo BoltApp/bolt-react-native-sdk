@@ -54,6 +54,9 @@ yarn-error.log*
 .env.local
 .env.*
 
+# Generated dev telemetry config (contains credentials — never commit)
+example/src/devTelemetryConfig.ts
+
 # TypeScript
 *.tsbuildinfo
 

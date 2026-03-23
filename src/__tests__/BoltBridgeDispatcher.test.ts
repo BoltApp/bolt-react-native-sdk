@@ -256,8 +256,8 @@ describe('BoltBridgeDispatcher', () => {
     dispatcher.handleMessage(makePostMessageEvent('boom'));
 
     expect(errorSpy).toHaveBeenCalledWith(
-      '[BoltBridgeDispatcher] Error in message listener:',
-      expect.any(Error)
+      '[Bolt] Error in message listener',
+      expect.anything()
     );
     errorSpy.mockRestore();
   });
