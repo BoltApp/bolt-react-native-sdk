@@ -79,10 +79,49 @@ export interface ThreeDSResult {
   error?: ThreeDSError;
 }
 
+// ── Wallet Button Types ──────────────────────────────────────
+
+/**
+ * Approved Apple Pay button label variants per Apple's Human Interface
+ * Guidelines. Maps to PKPaymentButtonType values.
+ */
+export type ApplePayButtonType =
+  | 'plain'
+  | 'buy'
+  | 'setUp'
+  | 'inStore'
+  | 'donate'
+  | 'checkout'
+  | 'book'
+  | 'subscribe'
+  | 'reload'
+  | 'addMoney'
+  | 'topUp'
+  | 'order'
+  | 'rent'
+  | 'support'
+  | 'contribute'
+  | 'tip';
+
+/**
+ * Approved Google Pay button label variants per Google's brand guidelines.
+ */
+export type GooglePayButtonType =
+  | 'plain'
+  | 'buy'
+  | 'pay'
+  | 'checkout'
+  | 'subscribe'
+  | 'donate'
+  | 'order'
+  | 'book';
+
 // ── Apple Pay Types ─────────────────────────────────────────
 
 export interface ApplePayResult {
   token: string;
+  bin?: string;
+  expiration?: string;
   billingContact?: ApplePayBillingContact;
   boltReference?: string;
 }
@@ -116,6 +155,8 @@ export interface ApplePayConfig {
 
 export interface GooglePayResult {
   token: string;
+  bin?: string;
+  expiration?: string;
   email?: string;
   billingAddress?: GooglePayBillingAddress;
   boltReference?: string;

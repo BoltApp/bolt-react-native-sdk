@@ -13,7 +13,7 @@ export interface Spec extends TurboModule {
    * @param config JSON-encoded GooglePayConfig
    * @param publishableKey Bolt publishable key
    * @param baseUrl Bolt API base URL
-   * @returns JSON-encoded result with token, billingAddress
+   * @returns JSON-encoded result with token, bin, expiration, billingAddress
    */
   requestPayment(
     config: string,

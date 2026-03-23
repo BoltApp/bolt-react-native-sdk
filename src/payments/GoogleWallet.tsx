@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  Platform,
-  type ViewStyle,
-} from 'react-native';
+import { Platform, type ViewStyle } from 'react-native';
 import NativeGooglePay from '../native/NativeGooglePay';
+import BoltGooglePayButton from '../native/NativeGooglePayButton';
 import { useBolt } from '../client/useBolt';
-import type { GooglePayResult, GooglePayConfig } from './types';
+import type {
+  GooglePayResult,
+  GooglePayConfig,
+  GooglePayButtonType,
+} from './types';
 import { startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
 
@@ -17,11 +16,12 @@ export interface GoogleWalletProps {
   onComplete: (result: GooglePayResult) => void;
   onError?: (error: Error) => void;
   style?: ViewStyle;
+  buttonType?: GooglePayButtonType;
 }
 
 /**
- * <GoogleWallet /> — renders a Google Pay button that triggers the native
- * PaymentsClient payment sheet via the BoltGooglePay TurboModule.
+ * <GoogleWallet /> — renders a native Google Pay button that triggers the
+ * native PaymentsClient payment sheet via the BoltGooglePay TurboModule.
  *
  * Only renders on Android when Google Pay is available.
  */
@@ -30,6 +30,7 @@ export const GoogleWallet = ({
   onComplete,
   onError,
   style,
+  buttonType = 'plain',
 }: GoogleWalletProps) => {
   const bolt = useBolt();
   const [available, setAvailable] = useState(false);
@@ -80,29 +81,11 @@ export const GoogleWallet = ({
   }
 
   return (
-    <TouchableOpacity
-      style={[styles.button, style]}
+    <BoltGooglePayButton
+      buttonType={buttonType}
+      // eslint-disable-next-line react-native/no-inline-styles
+      style={[{ height: 48 }, style]}
       onPress={handlePress}
-      accessibilityLabel="Pay with Google Pay"
-      accessibilityRole="button"
-    >
-      <Text style={styles.buttonText}>Google Pay</Text>
-    </TouchableOpacity>
+    />
   );
 };
-
-const styles = StyleSheet.create({
-  button: {
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-});
