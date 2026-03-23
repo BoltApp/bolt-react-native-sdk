@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  Platform,
-  type ViewStyle,
-} from 'react-native';
+import { Platform, type ViewStyle } from 'react-native';
 import NativeApplePay from '../native/NativeApplePay';
+import BoltApplePayButton from '../native/NativeApplePayButton';
 import { useBolt } from '../client/useBolt';
-import type { ApplePayResult, ApplePayConfig } from './types';
+import type {
+  ApplePayResult,
+  ApplePayConfig,
+  ApplePayButtonType,
+} from './types';
 import { startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
 
@@ -18,10 +17,11 @@ export interface ApplePayProps {
   onError?: (error: Error) => void;
   style?: ViewStyle;
   buttonStyle?: 'black' | 'white' | 'whiteOutline';
+  buttonType?: ApplePayButtonType;
 }
 
 /**
- * <ApplePay /> — renders an Apple Pay button that triggers the native
+ * <ApplePay /> — renders a native PKPaymentButton that triggers the native
  * PassKit payment sheet via the BoltApplePay TurboModule.
  *
  * Only renders on iOS when Apple Pay is available.
@@ -32,6 +32,7 @@ export const ApplePay = ({
   onError,
   style,
   buttonStyle = 'black',
+  buttonType = 'plain',
 }: ApplePayProps) => {
   const bolt = useBolt();
   const [available, setAvailable] = useState(false);
@@ -81,46 +82,13 @@ export const ApplePay = ({
     return null;
   }
 
-  const buttonColors = {
-    black: { bg: '#000000', text: '#FFFFFF' },
-    white: { bg: '#FFFFFF', text: '#000000' },
-    whiteOutline: { bg: '#FFFFFF', text: '#000000' },
-  };
-  const colors = buttonColors[buttonStyle];
-
   return (
-    <TouchableOpacity
-      style={[
-        styles.button,
-        { backgroundColor: colors.bg },
-        buttonStyle === 'whiteOutline' && styles.outline,
-        style,
-      ]}
+    <BoltApplePayButton
+      buttonType={buttonType}
+      buttonStyle={buttonStyle}
+      // eslint-disable-next-line react-native/no-inline-styles
+      style={[{ height: 48 }, style]}
       onPress={handlePress}
-      accessibilityLabel="Pay with Apple Pay"
-      accessibilityRole="button"
-    >
-      <Text style={[styles.buttonText, { color: colors.text }]}>
-        {'\uF8FF'} Pay
-      </Text>
-    </TouchableOpacity>
+    />
   );
 };
-
-const styles = StyleSheet.create({
-  button: {
-    height: 48,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  outline: {
-    borderWidth: 1,
-    borderColor: '#000000',
-  },
-  buttonText: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-});

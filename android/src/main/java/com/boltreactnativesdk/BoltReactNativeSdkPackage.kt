@@ -5,7 +5,7 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
-import java.util.HashMap
+import com.facebook.react.uimanager.ViewManager
 
 class BoltReactNativeSdkPackage : BaseReactPackage() {
   override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? {
@@ -27,5 +27,11 @@ class BoltReactNativeSdkPackage : BaseReactPackage() {
         isTurboModule = true
       )
     )
+  }
+
+  override fun createViewManagers(
+    reactContext: ReactApplicationContext
+  ): List<ViewManager<*, *>> {
+    return listOf(GooglePayButtonViewManager())
   }
 }

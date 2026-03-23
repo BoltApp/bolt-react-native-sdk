@@ -13,7 +13,7 @@ export interface Spec extends TurboModule {
    * @param config JSON-encoded ApplePayConfig
    * @param publishableKey Bolt publishable key for merchant validation
    * @param baseUrl Bolt API base URL
-   * @returns JSON-encoded result with token, billingContact, boltReference
+   * @returns JSON-encoded result with token, bin, expiration, billingContact, boltReference
    */
   requestPayment(
     config: string,

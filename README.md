@@ -5,7 +5,7 @@ Bolt React Native SDK for payments. Provides Credit Card tokenization, 3D Secure
 ## Architecture
 
 - **Credit Card & 3DS** — WebView-based, loading secure pages from `connect.bolt.com`. Card data never touches your app (PCI compliant).
-- **Apple Pay & Google Pay** — Native TurboModules using PassKit (iOS) and PaymentsClient (Android).
+- **Apple Pay & Google Pay** — Native Fabric view components for buttons (`PKPaymentButton` on iOS, `PayButton` on Android) with TurboModules for the payment sheet.
 
 ## Installation
 
@@ -154,18 +154,24 @@ function StoredCardPayment() {
 ```typescript
 import { ApplePay } from '@boltpay/react-native/payments';
 
-<ApplePay
-  config={{
-    merchantId: 'merchant.com.yourapp',
-    countryCode: 'US',
-    currencyCode: 'USD',
-    total: { label: 'Your Store', amount: '9.99' },
-  }}
-  onComplete={(result) => {
-    // result.token, result.billingContact
-  }}
-  onError={(error) => console.error(error)}
-/>
+function CheckoutScreen() {
+  return (
+    <ApplePay
+      config={{
+        merchantId: 'merchant.com.yourapp',
+        countryCode: 'US',
+        currencyCode: 'USD',
+        total: { label: 'Your Store', amount: '9.99' },
+      }}
+      buttonType="buy"
+      buttonStyle="black"
+      onComplete={(result) => {
+        // result: { token, bin?, expiration?, billingContact?, boltReference? }
+      }}
+      onError={(error) => console.error(error)}
+    />
+  );
+}
 ```
 
 ### 5. Google Pay (Android)
@@ -173,19 +179,24 @@ import { ApplePay } from '@boltpay/react-native/payments';
 ```typescript
 import { GoogleWallet } from '@boltpay/react-native/payments';
 
-<GoogleWallet
-  config={{
-    merchantId: 'YOUR_MERCHANT_ID',
-    merchantName: 'Your Store',
-    countryCode: 'US',
-    currencyCode: 'USD',
-    totalPrice: '9.99',
-  }}
-  onComplete={(result) => {
-    // result.token, result.billingAddress
-  }}
-  onError={(error) => console.error(error)}
-/>
+function CheckoutScreen() {
+  return (
+    <GoogleWallet
+      config={{
+        merchantId: 'YOUR_MERCHANT_ID',
+        merchantName: 'Your Store',
+        countryCode: 'US',
+        currencyCode: 'USD',
+        totalPrice: '9.99',
+      }}
+      buttonType="buy"
+      onComplete={(result) => {
+        // result: { token, bin?, expiration?, billingAddress?, boltReference? }
+      }}
+      onError={(error) => console.error(error)}
+    />
+  );
+}
 ```
 
 ### 6. Styling
@@ -232,8 +243,8 @@ cc.setStyles({
 | `CreditCard.Component`               | WebView-based credit card input                                           |
 | `CreditCard.useController(options?)` | Returns a controller with `tokenize()`, `on()`, and `setStyles()`         |
 | `useThreeDSecure()`                  | Hook returning `{ Component, fetchReferenceID(), challengeWithConfig() }` |
-| `ApplePay`                           | Native Apple Pay button (iOS only, renders nothing on Android)            |
-| `GoogleWallet`                       | Native Google Pay button (Android only, renders nothing on iOS)           |
+| `ApplePay`                           | Native `PKPaymentButton` (iOS only, renders nothing on Android)           |
+| `GoogleWallet`                       | Native Google Pay `PayButton` (Android only, renders nothing on iOS)      |
 
 ### Credit Card Controller
 
@@ -243,12 +254,33 @@ cc.setStyles({
 | `on(event, callback)` | Register event listener. Events: `valid`, `error`, `blur`, `focus` |
 | `setStyles(styles)`   | Update input field styles                                          |
 
+### ApplePay Props
+
+| Prop          | Type                                   | Default   | Description                                                                         |
+| ------------- | -------------------------------------- | --------- | ----------------------------------------------------------------------------------- |
+| `config`      | `ApplePayConfig`                       | required  | Merchant ID, country/currency, and total amount                                     |
+| `onComplete`  | `(ApplePayResult) => void`             | required  | Called with token, bin, expiration, and billing contact on success                  |
+| `onError`     | `(Error) => void`                      | —         | Called on payment failure or cancellation                                           |
+| `buttonType`  | `ApplePayButtonType`                   | `'plain'` | Maps to `PKPaymentButtonType`. Button text is rendered natively and auto-localized. |
+| `buttonStyle` | `'black' \| 'white' \| 'whiteOutline'` | `'black'` | Maps to `PKPaymentButtonStyle`                                                      |
+| `style`       | `ViewStyle`                            | —         | Container style overrides (height, margin, etc.)                                    |
+
+### GoogleWallet Props
+
+| Prop         | Type                        | Default   | Description                                                                                           |
+| ------------ | --------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| `config`     | `GooglePayConfig`           | required  | Merchant ID/name, country/currency, and total price                                                   |
+| `onComplete` | `(GooglePayResult) => void` | required  | Called with token, bin, expiration, and billing address on success                                    |
+| `onError`    | `(Error) => void`           | —         | Called on payment failure or cancellation                                                             |
+| `buttonType` | `GooglePayButtonType`       | `'plain'` | Maps to Google Pay `ButtonConstants.ButtonType`. Button text is rendered natively and auto-localized. |
+| `style`      | `ViewStyle`                 | —         | Container style overrides (height, margin, etc.)                                                      |
+
 ### 3D Secure
 
-| Method                                    | Description                                                             |
-| ----------------------------------------- | ----------------------------------------------------------------------- |
+| Method                                    | Description                                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `fetchReferenceID(creditCardInfo)`        | Accepts `TokenResult` or `CreditCardId`. Returns `Promise<string>`. Throws `ThreeDSError`. |
-| `challengeWithConfig(orderToken, config)` | Returns `Promise<ThreeDSResult>`. Never throws. Check `result.success`. |
+| `challengeWithConfig(orderToken, config)` | Returns `Promise<ThreeDSResult>`. Never throws. Check `result.success`.                    |
 
 ### Types (`@boltpay/react-native/payments`)
 
@@ -260,8 +292,10 @@ cc.setStyles({
 - `CreditCardId` — `{ id: string, expiration: string }` (from Bolt's Add Card API)
 - `CreditCardInfo` — `CreditCardId | TokenResult` (input for `fetchReferenceID`)
 - `EventType` — `'error' | 'valid' | 'blur' | 'focus'`
-- `ApplePayResult` — `{ token, billingContact?, boltReference? }`
-- `GooglePayResult` — `{ token, billingAddress? }`
+- `ApplePayResult` — `{ token, bin?, expiration?, billingContact?, boltReference? }`
+- `ApplePayButtonType` — Apple-approved button label variants (`'plain'`, `'buy'`, `'checkout'`, `'book'`, `'subscribe'`, `'donate'`, `'order'`, `'setUp'`, `'inStore'`, `'reload'`, `'addMoney'`, `'topUp'`, `'rent'`, `'support'`, `'contribute'`, `'tip'`)
+- `GooglePayResult` — `{ token, bin?, expiration?, email?, billingAddress?, boltReference? }`
+- `GooglePayButtonType` — Google-approved button label variants (`'plain'`, `'buy'`, `'pay'`, `'checkout'`, `'subscribe'`, `'donate'`, `'order'`, `'book'`)
 - `ApplePayConfig`, `GooglePayConfig` — Configuration for wallet buttons
 
 ### Error Codes (`ThreeDSError`)
