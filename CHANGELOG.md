@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.3.0...v0.4.0) (2026-03-23)
+
+### Features
+
+* add OTel telemetry pipeline with structured logging and span instrumentation ([#31](https://github.com/BoltApp/bolt-react-native-sdk/issues/31)) ([8643eb7](https://github.com/BoltApp/bolt-react-native-sdk/commit/8643eb731f2099192d91538dd85c2b4c7e59666e))
+
 ## [0.3.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.2.0...v0.3.0) (2026-03-19)
 
 ### Features
