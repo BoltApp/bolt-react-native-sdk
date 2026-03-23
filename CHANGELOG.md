@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.4.0...v0.5.0) (2026-03-23)
+
+### Features
+
+* replace wallet buttons with native Fabric components for brand compliance and localization ([#33](https://github.com/BoltApp/bolt-react-native-sdk/issues/33)) ([86a1802](https://github.com/BoltApp/bolt-react-native-sdk/commit/86a18024a262fa93d7c3dcfa1170a6b7b80bae8e))
+
 ## [0.4.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.3.0...v0.4.0) (2026-03-23)
 
 ### Features
