@@ -23,6 +23,7 @@ import { Platform } from 'react-native';
 import type { BoltConfig } from '../client/Bolt';
 import { BoltAttributes, INSTRUMENTATION_NAME } from './attributes';
 import { OTLP_AUTH_TOKEN, OTLP_ENDPOINT } from './config';
+import { SDK_VERSION } from './sdkVersion';
 
 let initialized = false;
 let tracerProvider: BasicTracerProvider | undefined;
@@ -71,12 +72,9 @@ export const initTelemetry = (config: BoltConfig): void => {
   // For the injected path, OTLP_AUTH_TOKEN is pre-encoded by the inject script.
   const encodedToken = devAuthToken ?? OTLP_AUTH_TOKEN;
 
-  const version: string = (require('../../package.json') as { version: string })
-    .version;
-
   const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: INSTRUMENTATION_NAME,
-    [ATTR_SERVICE_VERSION]: version,
+    [ATTR_SERVICE_VERSION]: SDK_VERSION,
     [BoltAttributes.ENVIRONMENT]: config.environment ?? 'production',
     [BoltAttributes.PUBLISHABLE_KEY]: config.publishableKey.slice(0, 8) + '...',
     [ATTR_OS_NAME]: Platform.OS,
