@@ -1,4 +1,7 @@
 {
+  "hooks": {
+    "afterBump": "node scripts/update-sdk-version.js"
+  },
   "git": {
     "commitMessage": "chore: release ${version}",
     "tagName": "v${version}"
