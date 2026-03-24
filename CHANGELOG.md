@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.1](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.0...v0.5.1) (2026-03-24)
+
+### Bug Fixes
+
+* resolve package.json require path error in published lib ([#34](https://github.com/BoltApp/bolt-react-native-sdk/issues/34)) ([f05f5d8](https://github.com/BoltApp/bolt-react-native-sdk/commit/f05f5d89f1b2be5b66fca84a86184d891e988ad3))
+
 ## [0.5.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.4.0...v0.5.0) (2026-03-23)
 
 ### Features
