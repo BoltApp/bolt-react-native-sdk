@@ -1,5 +1,5 @@
 PODS:
-  - BoltReactNativeSdk (0.4.0):
+  - BoltReactNativeSdk (0.5.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2063,7 +2063,7 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  BoltReactNativeSdk: 040ede4932480f767536ea24dde9f7f088134947
+  BoltReactNativeSdk: e8986a6326b43623245c77286fa5d5ad6ab23f43
   FBLazyVector: c12d2108050e27952983d565a232f6f7b1ad5e69
   hermes-engine: f4f579ea06f83a03800993f3f445a5025f78f893
   RCTDeprecation: 3280799c14232a56e5a44f92981a8ee33bc69fd9

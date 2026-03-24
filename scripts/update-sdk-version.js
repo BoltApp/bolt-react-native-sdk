@@ -16,4 +16,3 @@ const OUT = path.join(ROOT, 'src', 'telemetry', 'sdkVersion.ts');
 const content = `// Auto-updated by scripts/update-sdk-version.js during release. Do not edit manually.\nexport const SDK_VERSION = '${version}';\n`;
 
 fs.writeFileSync(OUT, content, 'utf8');
-console.log(`SDK_VERSION set to ${version}`);
