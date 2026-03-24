@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.2](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.1...v0.5.2) (2026-03-24)
+
+### Miscellaneous
+
+* sync sdk version into release commit via release-it hook ([#35](https://github.com/BoltApp/bolt-react-native-sdk/issues/35)) ([d2abe50](https://github.com/BoltApp/bolt-react-native-sdk/commit/d2abe50d931ea3a53e4c9b44ae69d21591e2d392))
+
 ## [0.5.1](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.0...v0.5.1) (2026-03-24)
 
 ### Bug Fixes
