@@ -78,3 +78,5 @@ vendor/
 example/vendor/
 
 test-results/
+
+boltpay-react-native-*.tgz
