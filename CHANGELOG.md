@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.3](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.2...v0.5.3) (2026-03-25)
+
+### Bug Fixes
+
+* use platform-specific stubs for Apple Pay and Google Pay native components ([#36](https://github.com/BoltApp/bolt-react-native-sdk/issues/36)) ([edd0bd0](https://github.com/BoltApp/bolt-react-native-sdk/commit/edd0bd0d7bd608184001f318d65e88ac87c17ce1))
+
 ## [0.5.2](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.1...v0.5.2) (2026-03-24)
 
 ### Miscellaneous
