@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.5](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.4...v0.5.5) (2026-03-25)
+
+### Bug Fixes
+
+* resolve codegenNativeComponent parse failure in Expo/Metro bundling ([#38](https://github.com/BoltApp/bolt-react-native-sdk/issues/38)) ([14560e9](https://github.com/BoltApp/bolt-react-native-sdk/commit/14560e9058c9e3f5e012c6badabcc5da88711430))
+
 ## [0.5.4](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.3...v0.5.4) (2026-03-25)
 
 ### Bug Fixes
