@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.4](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.3...v0.5.4) (2026-03-25)
+
+### Bug Fixes
+
+* guard codegenNativeComponent behind Platform.OS in native button specs ([#37](https://github.com/BoltApp/bolt-react-native-sdk/issues/37)) ([09b8744](https://github.com/BoltApp/bolt-react-native-sdk/commit/09b8744d3ff5b5311288d758833a55c327c12541)), closes [#36](https://github.com/BoltApp/bolt-react-native-sdk/issues/36)
+
 ## [0.5.3](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.2...v0.5.3) (2026-03-25)
 
 ### Bug Fixes
