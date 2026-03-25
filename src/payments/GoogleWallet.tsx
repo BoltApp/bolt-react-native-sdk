@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, type ViewStyle } from 'react-native';
 import NativeGooglePay from '../native/NativeGooglePay';
-import BoltGooglePayButton from '../native/NativeGooglePayButton';
 import { useBolt } from '../client/useBolt';
 import type {
   GooglePayResult,
@@ -10,6 +9,15 @@ import type {
 } from './types';
 import { startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
+
+// Conditional require: Metro inlines Platform.OS and eliminates the dead branch at bundle
+// time, so NativeGooglePayButton (which calls codegenNativeComponent) is never loaded on
+// iOS — even if the .ios.js stub is bypassed by exports-map resolution.
+const BoltGooglePayButton = (
+  Platform.OS === 'android'
+    ? require('../native/NativeGooglePayButton').default
+    : null
+) as typeof import('../native/NativeGooglePayButton').default | null;
 
 export interface GoogleWalletProps {
   config: GooglePayConfig;
@@ -76,7 +84,7 @@ export const GoogleWallet = ({
     }
   }, [config, bolt, onComplete, onError]);
 
-  if (!available) {
+  if (!available || !BoltGooglePayButton) {
     return null;
   }
 
