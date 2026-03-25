@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, type ViewStyle } from 'react-native';
 import NativeApplePay from '../native/NativeApplePay';
-import BoltApplePayButton from '../native/NativeApplePayButton';
 import { useBolt } from '../client/useBolt';
 import type {
   ApplePayResult,
@@ -10,6 +9,15 @@ import type {
 } from './types';
 import { startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
+
+// Conditional require: Metro inlines Platform.OS and eliminates the dead branch at bundle
+// time, so NativeApplePayButton (which calls codegenNativeComponent) is never loaded on
+// Android — even if the .android.js stub is bypassed by exports-map resolution.
+const BoltApplePayButton = (
+  Platform.OS === 'ios'
+    ? require('../native/NativeApplePayButton').default
+    : null
+) as typeof import('../native/NativeApplePayButton').default | null;
 
 export interface ApplePayProps {
   config: ApplePayConfig;
@@ -78,7 +86,7 @@ export const ApplePay = ({
     }
   }, [config, bolt, onComplete, onError]);
 
-  if (!available) {
+  if (!available || !BoltApplePayButton) {
     return null;
   }
 
