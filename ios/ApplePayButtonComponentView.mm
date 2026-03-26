@@ -37,10 +37,10 @@ static PKPaymentButtonStyle PKButtonStyleFromString(const std::string &str) {
 
 // MARK: - Fabric ComponentView
 
-@interface ApplePayButtonComponentView : RCTViewComponentView
+@interface BoltApplePayButtonComponentView : RCTViewComponentView
 @end
 
-@implementation ApplePayButtonComponentView {
+@implementation BoltApplePayButtonComponentView {
   PKPaymentButton *_paymentButton;
   NSArray<NSLayoutConstraint *> *_buttonConstraints;
   std::string _currentButtonType;
@@ -119,5 +119,5 @@ static PKPaymentButtonStyle PKButtonStyleFromString(const std::string &str) {
 
 Class<RCTComponentViewProtocol> BoltApplePayButtonCls(void)
 {
-  return ApplePayButtonComponentView.class;
+  return BoltApplePayButtonComponentView.class;
 }
