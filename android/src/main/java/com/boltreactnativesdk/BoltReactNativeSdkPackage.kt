@@ -9,10 +9,11 @@ import com.facebook.react.uimanager.ViewManager
 
 class BoltReactNativeSdkPackage : BaseReactPackage() {
   override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? {
-    return if (name == BoltReactNativeSdkModule.NAME) {
-      BoltReactNativeSdkModule(reactContext)
-    } else {
-      null
+    return when (name) {
+      BoltReactNativeSdkModule.NAME -> BoltReactNativeSdkModule(reactContext)
+      GooglePayModule.NAME -> GooglePayModule(reactContext)
+      NetworkingModule.NAME -> NetworkingModule(reactContext)
+      else -> null
     }
   }
 
@@ -25,6 +26,22 @@ class BoltReactNativeSdkPackage : BaseReactPackage() {
         needsEagerInit = false,
         isCxxModule = false,
         isTurboModule = true
+      ),
+      GooglePayModule.NAME to ReactModuleInfo(
+        name = GooglePayModule.NAME,
+        className = GooglePayModule.NAME,
+        canOverrideExistingModule = false,
+        needsEagerInit = false,
+        isCxxModule = false,
+        isTurboModule = false
+      ),
+      NetworkingModule.NAME to ReactModuleInfo(
+        name = NetworkingModule.NAME,
+        className = NetworkingModule.NAME,
+        canOverrideExistingModule = false,
+        needsEagerInit = false,
+        isCxxModule = false,
+        isTurboModule = false
       )
     )
   }
