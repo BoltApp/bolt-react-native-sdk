@@ -109,6 +109,11 @@
     "jsSrcsDir": "src",
     "android": {
       "javaPackageName": "com.boltreactnativesdk"
+    },
+    "ios": {
+      "componentProvider": {
+        "BoltApplePayButton": "ApplePayButtonComponentView"
+      }
     }
   },
   "dependencies": {
