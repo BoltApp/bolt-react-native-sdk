@@ -112,7 +112,7 @@
     },
     "ios": {
       "componentProvider": {
-        "BoltApplePayButton": "ApplePayButtonComponentView"
+        "BoltApplePayButton": "BoltApplePayButtonComponentView"
       }
     }
   },
