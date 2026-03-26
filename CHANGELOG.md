@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.7](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.6...v0.5.7) (2026-03-26)
+
+### Bug Fixes
+
+* rename ApplePayButtonComponentView to BoltApplePayButtonComponentView ([#40](https://github.com/BoltApp/bolt-react-native-sdk/issues/40)) ([0954f65](https://github.com/BoltApp/bolt-react-native-sdk/commit/0954f65ae731c06c2709aeedbeb3e90518c171f2))
+
 ## [0.5.6](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.5...v0.5.6) (2026-03-26)
 
 ### Bug Fixes
