@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.6](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.5...v0.5.6) (2026-03-26)
+
+### Bug Fixes
+
+* register native modules and Fabric components for Expo/New Architecture compatibility ([#39](https://github.com/BoltApp/bolt-react-native-sdk/issues/39)) ([56e7630](https://github.com/BoltApp/bolt-react-native-sdk/commit/56e7630147aeb76b58fc0856060673dcfba5a6a0))
+
 ## [0.5.5](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.4...v0.5.5) (2026-03-25)
 
 ### Bug Fixes
