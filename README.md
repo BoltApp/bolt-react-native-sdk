@@ -151,6 +151,28 @@ function StoredCardPayment() {
 
 ### 4. Apple Pay (iOS)
 
+#### Prerequisites
+
+Your app must have the Apple Pay entitlement configured with your Apple-registered merchant identifier. This is **not** your Bolt publishable key — it's the identifier you register in the [Apple Developer portal](https://developer.apple.com/account/resources/identifiers).
+
+**Xcode:** Open your app target → **Signing & Capabilities** → **+ Capability** → **Apple Pay** → check your merchant ID.
+
+**Expo:** Add this to your `app.json`:
+
+```json
+{
+  "ios": {
+    "entitlements": {
+      "com.apple.developer.in-app-payments": ["merchant.com.yourapp"]
+    }
+  }
+}
+```
+
+Then re-run `expo prebuild` and rebuild.
+
+#### Usage
+
 ```typescript
 import { ApplePay } from '@boltpay/react-native/payments';
 
@@ -175,6 +197,12 @@ function CheckoutScreen() {
 ```
 
 ### 5. Google Pay (Android)
+
+#### Prerequisites
+
+Your `config.merchantId` must be your Google Pay merchant ID from the [Google Pay Business Console](https://pay.google.com/business/console/). For testing, you can use any value — Google Pay's test environment does not validate the merchant ID.
+
+#### Usage
 
 ```typescript
 import { GoogleWallet } from '@boltpay/react-native/payments';
