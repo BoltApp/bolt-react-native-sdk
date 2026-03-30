@@ -141,7 +141,7 @@ export interface ApplePayBillingContact {
 }
 
 export interface ApplePayConfig {
-  merchantId: string;
+  merchantId?: string; // required for mode: 'native', not needed for mode: 'webview'
   countryCode: string;
   currencyCode: string;
   supportedNetworks?: string[];

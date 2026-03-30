@@ -14,9 +14,11 @@ Generate a polished, copyable Markdown PR description by reading the PR's diff a
 **If the user provides a PR number or URL** — use it directly.
 
 **If no PR is specified** — auto-detect from the current directory:
+
 ```bash
 gh pr view --json number,title,body,url
 ```
+
 If that fails (no PR for current branch), tell the user and ask them to provide a PR number.
 
 ---
@@ -43,6 +45,7 @@ If auto-detecting, omit `<PR_NUMBER_OR_URL>` from each command (gh will use the 
 ## Step 3: Analyze the changes
 
 Read the diff carefully and extract:
+
 - **What changed**: The functional changes made (not just file names)
 - **Why it likely changed**: Infer motivation from code context, naming, and PR title
 - **Testing implications**: What kinds of tests would validate this — unit tests, integration tests, manual flows, edge cases. Look for existing test files in the diff for clues.
@@ -54,7 +57,7 @@ Read the diff carefully and extract:
 
 Produce the following exact Markdown, with your inferred content substituted in:
 
-````markdown
+```markdown
 ### Description
 
 <clear prose summary of what this PR does and why — 2 to 5 sentences>
@@ -73,7 +76,7 @@ Produce the following exact Markdown, with your inferred content substituted in:
 #### Security Impact Summary
 
 <inferred security impact — if no security implications are apparent, write "No security-sensitive changes. This PR does not touch authentication, authorization, payment flows, user data handling, or external integrations." If there ARE security implications, describe them clearly.>
-````
+```
 
 ---
 

@@ -151,9 +151,36 @@ function StoredCardPayment() {
 
 ### 4. Apple Pay (iOS)
 
-#### Prerequisites
+Apple Pay defaults to `mode="webview"` — the Bolt-hosted Apple Pay iframe handles merchant validation and tokenization server-side. No entitlement or merchant certificate setup is required for this mode.
 
-Your app must have the Apple Pay entitlement configured with your Apple-registered merchant identifier. This is **not** your Bolt publishable key — it's the identifier you register in the [Apple Developer portal](https://developer.apple.com/account/resources/identifiers).
+#### Usage (default — WebView mode)
+
+```typescript
+import { ApplePay } from '@boltpay/react-native/payments';
+
+function CheckoutScreen() {
+  return (
+    <ApplePay
+      config={{
+        countryCode: 'US',
+        currencyCode: 'USD',
+        total: { label: 'Your Store', amount: '9.99' },
+      }}
+      referrer="https://your-store.example.com"
+      buttonType="buy"
+      buttonStyle="black"
+      onComplete={(result) => {
+        // result: { token, bin?, expiration?, billingContact?, boltReference? }
+      }}
+      onError={(error) => console.error(error)}
+    />
+  );
+}
+```
+
+#### Native mode (opt-in)
+
+If you need the native PassKit payment sheet (`mode="native"`), your app must have the Apple Pay entitlement configured with your Apple-registered merchant identifier. This is **not** your Bolt publishable key — it's the identifier you register in the [Apple Developer portal](https://developer.apple.com/account/resources/identifiers).
 
 **Xcode:** Open your app target → **Signing & Capabilities** → **+ Capability** → **Apple Pay** → check your merchant ID.
 
@@ -171,29 +198,18 @@ Your app must have the Apple Pay entitlement configured with your Apple-register
 
 Then re-run `expo prebuild` and rebuild.
 
-#### Usage
-
 ```typescript
-import { ApplePay } from '@boltpay/react-native/payments';
-
-function CheckoutScreen() {
-  return (
-    <ApplePay
-      config={{
-        merchantId: 'merchant.com.yourapp',
-        countryCode: 'US',
-        currencyCode: 'USD',
-        total: { label: 'Your Store', amount: '9.99' },
-      }}
-      buttonType="buy"
-      buttonStyle="black"
-      onComplete={(result) => {
-        // result: { token, bin?, expiration?, billingContact?, boltReference? }
-      }}
-      onError={(error) => console.error(error)}
-    />
-  );
-}
+<ApplePay
+  mode="native"
+  config={{
+    merchantId: 'merchant.com.yourapp',
+    countryCode: 'US',
+    currencyCode: 'USD',
+    total: { label: 'Your Store', amount: '9.99' },
+  }}
+  buttonType="buy"
+  onComplete={(result) => { /* ... */ }}
+/>
 ```
 
 ### 5. Google Pay (Android)
@@ -284,14 +300,16 @@ cc.setStyles({
 
 ### ApplePay Props
 
-| Prop          | Type                                   | Default   | Description                                                                         |
-| ------------- | -------------------------------------- | --------- | ----------------------------------------------------------------------------------- |
-| `config`      | `ApplePayConfig`                       | required  | Merchant ID, country/currency, and total amount                                     |
-| `onComplete`  | `(ApplePayResult) => void`             | required  | Called with token, bin, expiration, and billing contact on success                  |
-| `onError`     | `(Error) => void`                      | —         | Called on payment failure or cancellation                                           |
-| `buttonType`  | `ApplePayButtonType`                   | `'plain'` | Maps to `PKPaymentButtonType`. Button text is rendered natively and auto-localized. |
-| `buttonStyle` | `'black' \| 'white' \| 'whiteOutline'` | `'black'` | Maps to `PKPaymentButtonStyle`                                                      |
-| `style`       | `ViewStyle`                            | —         | Container style overrides (height, margin, etc.)                                    |
+| Prop          | Type                                   | Default     | Description                                                                                                       |
+| ------------- | -------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
+| `config`      | `ApplePayConfig`                       | required    | Country/currency, total amount, and optional merchant ID (`mode='native'` only)                                   |
+| `onComplete`  | `(ApplePayResult) => void`             | required    | Called with token, bin, expiration, and billing contact on success                                                |
+| `onError`     | `(Error) => void`                      | —           | Called on payment failure                                                                                         |
+| `mode`        | `'webview' \| 'native'`                | `'webview'` | `'webview'` uses the Bolt-hosted iframe (no entitlement needed). `'native'` uses PKPaymentButton + PassKit sheet. |
+| `buttonType`  | `ApplePayButtonType`                   | `'plain'`   | Button label variant. Auto-localized by Apple.                                                                    |
+| `buttonStyle` | `'black' \| 'white' \| 'whiteOutline'` | `'black'`   | Button color theme                                                                                                |
+| `referrer`    | `string`                               | —           | Merchant website URL registered with Bolt and Apple (`mode='webview'` only). Required for merchant validation.    |
+| `style`       | `ViewStyle`                            | —           | Container style overrides (height, margin, etc.)                                                                  |
 
 ### GoogleWallet Props
 

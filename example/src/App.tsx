@@ -37,8 +37,9 @@ import type {
 const bolt = new Bolt({
   publishableKey:
     // 3ds:
-    'tFb8YsxCSGSb.fS3kkcd6a-tl.713c7e045966cb916ccf42ba5becfcebf1a3a8042584bbac5cc74f8a8feebd2b',
-  //'yayzpqS9Y7Qb.MBLn0CaZCM7I.aa226a2b80c3aac19300f82dc6be8e92c91b8df1d527311a79e8b190af1f6b2b',
+    //'tFb8YsxCSGSb.fS3kkcd6a-tl.713c7e045966cb916ccf42ba5becfcebf1a3a8042584bbac5cc74f8a8feebd2b',
+    //'yayzpqS9Y7Qb.MBLn0CaZCM7I.aa226a2b80c3aac19300f82dc6be8e92c91b8df1d527311a79e8b190af1f6b2b',
+    'Q-5UMctK0oYN.ilCdYSP4NIPM.86e026dc5718eb7de83a55482f384cfcaf6be4c88df3b138d976188a4213e482',
   environment: 'staging',
 });
 
@@ -223,7 +224,6 @@ const AddCardScreen = () => {
         {Platform.OS === 'ios' && (
           <ApplePay
             config={{
-              merchantId: 'merchant.com.bolt.example',
               countryCode: 'US',
               currencyCode: 'USD',
               total: { label: 'Card Verification', amount: '0.00' },
