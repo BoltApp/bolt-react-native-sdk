@@ -9,6 +9,7 @@ import type {
 } from './types';
 import { startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
+import { ApplePayWebView } from './ApplePayWebView';
 
 // Conditional require: Metro inlines Platform.OS and eliminates the dead branch at bundle
 // time, so NativeApplePayButton (which calls codegenNativeComponent) is never loaded on
@@ -26,11 +27,29 @@ export interface ApplePayProps {
   style?: ViewStyle;
   buttonStyle?: 'black' | 'white' | 'whiteOutline';
   buttonType?: ApplePayButtonType;
+  /**
+   * Payment mode. Defaults to `'webview'` which uses the Bolt-hosted Apple Pay
+   * iframe (no entitlement or merchant certificate required). Set to `'native'`
+   * to use the native PKPaymentButton + PassKit sheet — requires an Apple Pay
+   * entitlement and a registered merchant identifier in your app.
+   */
+  mode?: 'webview' | 'native';
+  /**
+   * Your merchant website URL (webview mode only). Must match a domain
+   * registered in both your Bolt merchant account and with Apple for
+   * Apple Pay. Required because React Native WebView has no browser referrer.
+   */
+  referrer?: string;
 }
 
 /**
- * <ApplePay /> — renders a native PKPaymentButton that triggers the native
- * PassKit payment sheet via the BoltApplePay TurboModule.
+ * <ApplePay /> — renders an Apple Pay button.
+ *
+ * In `mode='webview'` (default): loads the Bolt-hosted add-card-from-apple-wallet
+ * iframe. No entitlement or merchant certificate setup required.
+ *
+ * In `mode='native'`: renders a native PKPaymentButton and triggers the PassKit
+ * payment sheet. Requires Apple Pay entitlement + registered merchant identifier.
  *
  * Only renders on iOS when Apple Pay is available.
  */
@@ -41,11 +60,14 @@ export const ApplePay = ({
   style,
   buttonStyle = 'black',
   buttonType = 'plain',
+  mode = 'webview',
+  referrer,
 }: ApplePayProps) => {
   const bolt = useBolt();
   const [available, setAvailable] = useState(false);
 
   useEffect(() => {
+    if (mode !== 'native') return;
     if (Platform.OS !== 'ios' || !NativeApplePay) {
       setAvailable(false);
       return;
@@ -53,7 +75,7 @@ export const ApplePay = ({
     NativeApplePay.canMakePayments()
       .then(setAvailable)
       .catch(() => setAvailable(false));
-  }, []);
+  }, [mode]);
 
   const handlePress = useCallback(async () => {
     if (!NativeApplePay) {
@@ -85,6 +107,20 @@ export const ApplePay = ({
       onError?.(error);
     }
   }, [config, bolt, onComplete, onError]);
+
+  if (mode !== 'native') {
+    return (
+      <ApplePayWebView
+        config={config}
+        onComplete={onComplete}
+        onError={onError}
+        style={style}
+        buttonStyle={buttonStyle}
+        buttonType={buttonType}
+        referrer={referrer}
+      />
+    );
+  }
 
   if (!available || !BoltApplePayButton) {
     return null;

@@ -19,7 +19,10 @@ import { INJECTED_BRIDGE_JS } from './injectedBridge';
  * The storm embedded SDK has additional elements (authorization, login-status,
  * payment-selector, etc.) that are out of scope for the initial release.
  */
-export type BoltElementName = 'credit-card-input' | '3d-secure';
+export type BoltElementName =
+  | 'credit-card-input'
+  | '3d-secure'
+  | 'add-card-from-apple-wallet';
 
 export interface BoltPaymentWebViewProps {
   element: BoltElementName;

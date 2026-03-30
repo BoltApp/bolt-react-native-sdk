@@ -8,9 +8,9 @@ jobs:
     name: Lint, Typecheck, Test, Build
     runs-on: ubuntu-latest
     env:
-      TERM: "xterm-256color"
+      TERM: 'xterm-256color'
       FORCE_COLOR: 1
-      NODE_OPTIONS: "--max-old-space-size=6144"
+      NODE_OPTIONS: '--max-old-space-size=6144'
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup
@@ -28,7 +28,7 @@ jobs:
         uses: BoltApp/test-reporter@v2
         if: success() || failure()
         with:
-          name: "Unit Tests Report"
+          name: 'Unit Tests Report'
           path: ./test-results/junit.xml
           reporter: jest-junit
           use-actions-summary: false

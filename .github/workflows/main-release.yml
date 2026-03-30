@@ -50,7 +50,7 @@ jobs:
         if: steps.release.outputs.bumped == 'true'
         uses: actions/setup-node@v6
         with:
-          registry-url: "https://registry.npmjs.org"
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Build
         if: steps.release.outputs.bumped == 'true'
