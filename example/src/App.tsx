@@ -237,7 +237,8 @@ const AddCardScreen = () => {
         {Platform.OS === 'android' && (
           <GoogleWallet
             config={{
-              merchantId: 'BCR2DN6T7654321',
+              gatewayMerchantId: 'BOLT_MERCHANT_ID',
+              googleMerchantId: 'BCR2DN6T7654321',
               merchantName: 'Demo Store',
               countryCode: 'US',
               currencyCode: 'USD',

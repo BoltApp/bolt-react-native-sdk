@@ -174,7 +174,17 @@ export interface GooglePayBillingAddress {
 }
 
 export interface GooglePayConfig {
-  merchantId: string;
+  /**
+   * Your Bolt merchant ID, used as `gatewayMerchantId` in the tokenization
+   * specification. This is the merchant identifier from your Bolt dashboard.
+   */
+  gatewayMerchantId: string;
+  /**
+   * Your Google-assigned merchant ID from the Google Pay & Wallet Console
+   * (https://pay.google.com/business/console). Format: `BCR2DN...`.
+   * Required for production; in TEST environment you may pass an empty string.
+   */
+  googleMerchantId?: string;
   merchantName: string;
   countryCode: string;
   currencyCode: string;

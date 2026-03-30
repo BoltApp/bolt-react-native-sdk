@@ -25,6 +25,7 @@ export interface GoogleWalletProps {
   onError?: (error: Error) => void;
   style?: ViewStyle;
   buttonType?: GooglePayButtonType;
+  borderRadius?: number;
 }
 
 /**
@@ -39,6 +40,7 @@ export const GoogleWallet = ({
   onError,
   style,
   buttonType = 'plain',
+  borderRadius,
 }: GoogleWalletProps) => {
   const bolt = useBolt();
   const [available, setAvailable] = useState(false);
@@ -91,6 +93,7 @@ export const GoogleWallet = ({
   return (
     <BoltGooglePayButton
       buttonType={buttonType}
+      borderRadius={borderRadius}
       // eslint-disable-next-line react-native/no-inline-styles
       style={[{ height: 48 }, style]}
       onPress={handlePress}

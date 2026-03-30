@@ -98,9 +98,10 @@ describe('GooglePay types', () => {
     expect(result.boltReference).toBeUndefined();
   });
 
-  it('GooglePayConfig should require merchantId, merchantName, countryCode, currencyCode, totalPrice', () => {
+  it('GooglePayConfig should require gatewayMerchantId, merchantName, countryCode, currencyCode, totalPrice', () => {
     const config: GooglePayConfig = {
-      merchantId: 'BCR2DN6T7654321',
+      gatewayMerchantId: 'BOLT_MERCHANT_ID',
+      googleMerchantId: 'BCR2DN6T7654321',
       merchantName: 'Demo Store',
       countryCode: 'US',
       currencyCode: 'USD',
@@ -108,7 +109,8 @@ describe('GooglePay types', () => {
       totalPriceStatus: 'ESTIMATED',
     };
 
-    expect(config.merchantId).toBe('BCR2DN6T7654321');
+    expect(config.gatewayMerchantId).toBe('BOLT_MERCHANT_ID');
+    expect(config.googleMerchantId).toBe('BCR2DN6T7654321');
     expect(config.totalPrice).toBe('0.00');
     expect(config.totalPriceStatus).toBe('ESTIMATED');
   });

@@ -1,9 +1,13 @@
 import type { ViewProps } from 'react-native';
-import type { BubblingEventHandler } from 'react-native/Libraries/Types/CodegenTypes';
+import type {
+  BubblingEventHandler,
+  Float,
+} from 'react-native/Libraries/Types/CodegenTypes';
 import { codegenNativeComponent } from 'react-native';
 
 interface NativeProps extends ViewProps {
   buttonType: string;
+  borderRadius?: Float;
   onPress: BubblingEventHandler<{}>;
 }
 

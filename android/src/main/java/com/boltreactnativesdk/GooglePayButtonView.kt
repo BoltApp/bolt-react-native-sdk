@@ -1,6 +1,9 @@
 package com.boltreactnativesdk
 
 import android.content.Context
+import android.graphics.Outline
+import android.view.View
+import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.uimanager.UIManagerHelper
@@ -16,9 +19,25 @@ import com.google.android.gms.wallet.button.PayButton
 class GooglePayButtonView(context: Context) : FrameLayout(context) {
 
     private var currentButtonType: String = "plain"
+    private var cornerRadiusPx: Float = 0f
 
     init {
         rebuildButton()
+    }
+
+    fun updateBorderRadius(radiusPx: Float) {
+        cornerRadiusPx = radiusPx
+        if (radiusPx > 0f) {
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, view.width, view.height, radiusPx)
+                }
+            }
+            clipToOutline = true
+        } else {
+            outlineProvider = ViewOutlineProvider.BACKGROUND
+            clipToOutline = false
+        }
     }
 
     fun updateButtonType(type: String) {
