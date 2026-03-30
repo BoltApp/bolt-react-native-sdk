@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.1](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.6.0...v0.6.1) (2026-03-30)
+
+### Bug Fixes
+
+* split Google Pay merchantId, add borderRadius, fix WebView sizing ([#43](https://github.com/BoltApp/bolt-react-native-sdk/issues/43)) ([8b78fee](https://github.com/BoltApp/bolt-react-native-sdk/commit/8b78feef09651f0e656f3761e6715effb908d8d6))
+
 ## [0.6.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.7...v0.6.0) (2026-03-30)
 
 ### Features
