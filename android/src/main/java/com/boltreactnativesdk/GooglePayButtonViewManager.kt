@@ -1,6 +1,7 @@
 package com.boltreactnativesdk
 
 import com.facebook.react.module.annotations.ReactModule
+import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.ViewManagerDelegate
@@ -34,5 +35,10 @@ class GooglePayButtonViewManager :
     @ReactProp(name = "buttonType")
     override fun setButtonType(view: GooglePayButtonView, type: String?) {
         view.updateButtonType(type ?: "plain")
+    }
+
+    @ReactProp(name = "borderRadius", defaultFloat = 0f)
+    override fun setBorderRadius(view: GooglePayButtonView, borderRadius: Float) {
+        view.updateBorderRadius(PixelUtil.toPixelFromDIP(borderRadius))
     }
 }

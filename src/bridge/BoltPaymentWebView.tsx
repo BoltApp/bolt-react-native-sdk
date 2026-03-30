@@ -81,40 +81,56 @@ export const BoltPaymentWebView = forwardRef<
     [bolt.baseUrl, bolt.publishableKey, bolt.language, element]
   );
 
+  const tryExtractHeight = useCallback(
+    (raw: unknown) => {
+      // Unwrap double-serialized strings
+      let msg = raw;
+      if (typeof msg === 'string') {
+        try {
+          msg = JSON.parse(msg);
+        } catch {
+          return;
+        }
+      }
+      if (
+        typeof msg === 'object' &&
+        msg !== null &&
+        (msg as Record<string, unknown>).type === 'SetIFrameHeight' &&
+        typeof (msg as Record<string, unknown>).height === 'number'
+      ) {
+        const height = (msg as { height: number }).height;
+        setWebViewHeight(height);
+        onHeightChange?.(height);
+      }
+    },
+    [onHeightChange]
+  );
+
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
       dispatcher.handleMessage(event);
 
-      // Handle height change messages from the iframe
+      // Handle height change messages from the iframe.
+      // SetIFrameHeight may arrive as a raw message OR wrapped in a bridge
+      // envelope (window.parent.postMessage goes through the injected bridge).
       try {
         const data = JSON.parse(event.nativeEvent.data);
         if (
           typeof data === 'object' &&
           data !== null &&
-          !('__boltBridge' in data)
+          '__boltBridge' in data
         ) {
-          // Check for SetIFrameHeight message (may be double-serialized)
-          let msg = data;
-          if (typeof msg === 'string') {
-            try {
-              msg = JSON.parse(msg);
-            } catch {
-              // not double-serialized
-            }
-          }
-          if (
-            msg?.type === 'SetIFrameHeight' &&
-            typeof msg.height === 'number'
-          ) {
-            setWebViewHeight(msg.height);
-            onHeightChange?.(msg.height);
-          }
+          // Bridge envelope — check the inner data payload
+          tryExtractHeight((data as { data?: unknown }).data);
+        } else {
+          // Raw message (non-bridge)
+          tryExtractHeight(data);
         }
       } catch {
         // Not JSON, ignore for height handling
       }
     },
-    [dispatcher, onHeightChange]
+    [dispatcher, tryExtractHeight]
   );
 
   const handleShouldStartLoad = useCallback(
@@ -152,5 +168,6 @@ const styles = StyleSheet.create({
   webView: {
     backgroundColor: 'transparent',
     width: '100%',
+    overflow: 'hidden',
   },
 });

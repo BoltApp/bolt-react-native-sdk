@@ -216,7 +216,12 @@ Then re-run `expo prebuild` and rebuild.
 
 #### Prerequisites
 
-Your `config.merchantId` must be your Google Pay merchant ID from the [Google Pay Business Console](https://pay.google.com/business/console/). For testing, you can use any value — Google Pay's test environment does not validate the merchant ID.
+Google Pay requires two merchant identifiers:
+
+- **`gatewayMerchantId`** — Your Bolt merchant ID from the Bolt dashboard. This is used in the tokenization specification to route the payment through Bolt's gateway.
+- **`googleMerchantId`** (optional) — Your Google-assigned merchant ID from the [Google Pay Business Console](https://pay.google.com/business/console/) (format: `BCR2DN...`). Required for production. In the test environment this can be omitted.
+
+> **Common mistake:** Using your Android application ID (e.g., `com.example.myapp`) for either of these fields will cause an `OR_BIBED_06` error. The `gatewayMerchantId` must be your Bolt merchant ID and the `googleMerchantId` must be the ID from Google's console.
 
 #### Usage
 
@@ -227,13 +232,15 @@ function CheckoutScreen() {
   return (
     <GoogleWallet
       config={{
-        merchantId: 'YOUR_MERCHANT_ID',
+        gatewayMerchantId: 'YOUR_BOLT_MERCHANT_ID',
+        googleMerchantId: 'BCR2DN...', // from Google Pay Business Console
         merchantName: 'Your Store',
         countryCode: 'US',
         currencyCode: 'USD',
         totalPrice: '9.99',
       }}
       buttonType="buy"
+      borderRadius={8}
       onComplete={(result) => {
         // result: { token, bin?, expiration?, billingAddress?, boltReference? }
       }}
@@ -313,13 +320,14 @@ cc.setStyles({
 
 ### GoogleWallet Props
 
-| Prop         | Type                        | Default   | Description                                                                                           |
-| ------------ | --------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
-| `config`     | `GooglePayConfig`           | required  | Merchant ID/name, country/currency, and total price                                                   |
-| `onComplete` | `(GooglePayResult) => void` | required  | Called with token, bin, expiration, and billing address on success                                    |
-| `onError`    | `(Error) => void`           | —         | Called on payment failure or cancellation                                                             |
-| `buttonType` | `GooglePayButtonType`       | `'plain'` | Maps to Google Pay `ButtonConstants.ButtonType`. Button text is rendered natively and auto-localized. |
-| `style`      | `ViewStyle`                 | —         | Container style overrides (height, margin, etc.)                                                      |
+| Prop           | Type                        | Default   | Description                                                                                           |
+| -------------- | --------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| `config`       | `GooglePayConfig`           | required  | Gateway/Google merchant IDs, merchant name, country/currency, and total price                         |
+| `onComplete`   | `(GooglePayResult) => void` | required  | Called with token, bin, expiration, and billing address on success                                    |
+| `onError`      | `(Error) => void`           | —         | Called on payment failure or cancellation                                                             |
+| `buttonType`   | `GooglePayButtonType`       | `'plain'` | Maps to Google Pay `ButtonConstants.ButtonType`. Button text is rendered natively and auto-localized. |
+| `borderRadius` | `number`                    | —         | Corner radius in dp applied to the Google Pay button                                                  |
+| `style`        | `ViewStyle`                 | —         | Container style overrides (height, margin, etc.)                                                      |
 
 ### 3D Secure
 

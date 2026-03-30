@@ -184,7 +184,7 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
         tokenSpec.put("type", "PAYMENT_GATEWAY")
         val tokenParams = JSONObject()
         tokenParams.put("gateway", "bolt")
-        tokenParams.put("gatewayMerchantId", config.optString("merchantId", ""))
+        tokenParams.put("gatewayMerchantId", config.optString("gatewayMerchantId", ""))
         tokenSpec.put("parameters", tokenParams)
 
         val cardMethod = JSONObject()
@@ -204,7 +204,7 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
 
         // Merchant info
         val merchantInfo = JSONObject()
-        merchantInfo.put("merchantId", config.optString("merchantId", ""))
+        merchantInfo.put("merchantId", config.optString("googleMerchantId", ""))
         merchantInfo.put("merchantName", config.optString("merchantName", ""))
         params.put("merchantInfo", merchantInfo)
         params.put("emailRequired", true)

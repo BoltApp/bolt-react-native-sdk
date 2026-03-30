@@ -29,9 +29,12 @@ example/android/local.properties
 example/android/app/release/
 example/android/app/.cxx/
 
+
 # iOS
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
+**/*.xcworkspace/xcuserdata/
+**/*.xcodeproj/xcuserdata/
 
 # macOS
 .DS_Store
