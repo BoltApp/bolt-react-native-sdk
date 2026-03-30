@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.7...v0.6.0) (2026-03-30)
+
+### Features
+
+* add WebView mode for Apple Pay ([#42](https://github.com/BoltApp/bolt-react-native-sdk/issues/42)) ([4417d72](https://github.com/BoltApp/bolt-react-native-sdk/commit/4417d722b4f52b817792caeafb0937935da77a3b))
+
 ## [0.5.7](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.5.6...v0.5.7) (2026-03-26)
 
 ### Bug Fixes
