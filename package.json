@@ -48,7 +48,8 @@
     "release": "release-it",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "inject-telemetry-config": "node scripts/inject-telemetry-config.js",
-    "gen-dev-telemetry-config": "node scripts/gen-dev-telemetry-config.js"
+    "gen-dev-telemetry-config": "node scripts/gen-dev-telemetry-config.js",
+    "gen-bolt-config": "node scripts/gen-bolt-config.js"
   },
   "keywords": [
     "react-native",

@@ -3,9 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "android": "react-native run-android",
-    "ios": "react-native run-ios",
-    "start": "react-native start",
+    "android": "node ../scripts/gen-bolt-config.js && react-native run-android",
+    "ios": "node ../scripts/gen-bolt-config.js && react-native run-ios",
+    "start": "node ../scripts/gen-bolt-config.js && react-native start",
     "build:android": "react-native build-android --extra-params \"--no-daemon --console=plain -PreactNativeArchitectures=arm64-v8a\"",
     "build:ios": "react-native build-ios --mode Debug"
   },
