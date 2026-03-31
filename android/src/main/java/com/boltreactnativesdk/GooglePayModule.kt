@@ -21,6 +21,10 @@ import java.net.URL
  * 1. Checking Google Pay readiness
  * 2. Presenting the Google Pay payment sheet
  * 3. Tokenizing the result via Bolt's tokenizer API
+ *
+ * The merchant/gateway configuration (tokenization spec, merchant ID, etc.)
+ * is fetched from Bolt's /v1/apm_config/googlepay endpoint on the JS side
+ * and passed down in the config JSON.
  */
 class GooglePayModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
@@ -174,18 +178,31 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
         val cardParams = JSONObject()
         cardParams.put("allowedAuthMethods", JSONArray(listOf("PAN_ONLY", "CRYPTOGRAM_3DS")))
         cardParams.put("allowedCardNetworks", JSONArray(listOf("VISA", "MASTERCARD", "AMEX", "DISCOVER")))
-        cardParams.put("billingAddressRequired", true)
-        val billingAddressParams = JSONObject()
-        billingAddressParams.put("format", "FULL")
-        billingAddressParams.put("phoneNumberRequired", true)
-        cardParams.put("billingAddressParameters", billingAddressParams)
 
-        val tokenSpec = JSONObject()
-        tokenSpec.put("type", "PAYMENT_GATEWAY")
-        val tokenParams = JSONObject()
-        tokenParams.put("gateway", "bolt")
-        tokenParams.put("gatewayMerchantId", config.optString("gatewayMerchantId", ""))
-        tokenSpec.put("parameters", tokenParams)
+        // Billing address
+        val billingFormat = config.optString("billingAddressFormat", "FULL")
+        if (billingFormat != "NONE") {
+            cardParams.put("billingAddressRequired", true)
+            val billingAddressParams = JSONObject()
+            billingAddressParams.put("format", billingFormat)
+            billingAddressParams.put("phoneNumberRequired", true)
+            cardParams.put("billingAddressParameters", billingAddressParams)
+        }
+
+        // Tokenization spec from Bolt API config
+        val tokenSpecConfig = config.optJSONObject("tokenizationSpecification")
+        val tokenSpec = if (tokenSpecConfig != null) {
+            // Use the tokenization spec from Bolt's apm_config API
+            tokenSpecConfig
+        } else {
+            // Fallback: shouldn't happen in normal flow
+            val spec = JSONObject()
+            spec.put("type", "PAYMENT_GATEWAY")
+            val tokenParams = JSONObject()
+            tokenParams.put("gateway", "bolt")
+            spec.put("parameters", tokenParams)
+            spec
+        }
 
         val cardMethod = JSONObject()
         cardMethod.put("type", "CARD")
@@ -198,13 +215,12 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
         val transactionInfo = JSONObject()
         transactionInfo.put("totalPrice", config.optString("totalPrice", "0.00"))
         transactionInfo.put("totalPriceStatus", config.optString("totalPriceStatus", "FINAL"))
-        transactionInfo.put("countryCode", config.optString("countryCode", "US"))
         transactionInfo.put("currencyCode", config.optString("currencyCode", "USD"))
         params.put("transactionInfo", transactionInfo)
 
-        // Merchant info
+        // Merchant info from Bolt API config
         val merchantInfo = JSONObject()
-        merchantInfo.put("merchantId", config.optString("googleMerchantId", ""))
+        merchantInfo.put("merchantId", config.optString("merchantId", ""))
         merchantInfo.put("merchantName", config.optString("merchantName", ""))
         params.put("merchantInfo", merchantInfo)
         params.put("emailRequired", true)

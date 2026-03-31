@@ -98,20 +98,26 @@ describe('GooglePay types', () => {
     expect(result.boltReference).toBeUndefined();
   });
 
-  it('GooglePayConfig should require gatewayMerchantId, merchantName, countryCode, currencyCode, totalPrice', () => {
+  it('GooglePayConfig should accept presentation options only', () => {
     const config: GooglePayConfig = {
-      gatewayMerchantId: 'BOLT_MERCHANT_ID',
-      googleMerchantId: 'BCR2DN6T7654321',
-      merchantName: 'Demo Store',
-      countryCode: 'US',
       currencyCode: 'USD',
-      totalPrice: '0.00',
-      totalPriceStatus: 'ESTIMATED',
+      amount: '0.00',
+      label: 'Card Verification',
+      billingAddressCollectionFormat: 'full',
     };
 
-    expect(config.gatewayMerchantId).toBe('BOLT_MERCHANT_ID');
-    expect(config.googleMerchantId).toBe('BCR2DN6T7654321');
-    expect(config.totalPrice).toBe('0.00');
-    expect(config.totalPriceStatus).toBe('ESTIMATED');
+    expect(config.currencyCode).toBe('USD');
+    expect(config.amount).toBe('0.00');
+    expect(config.label).toBe('Card Verification');
+    expect(config.billingAddressCollectionFormat).toBe('full');
+  });
+
+  it('GooglePayConfig should allow all fields to be optional', () => {
+    const config: GooglePayConfig = {};
+
+    expect(config.currencyCode).toBeUndefined();
+    expect(config.amount).toBeUndefined();
+    expect(config.label).toBeUndefined();
+    expect(config.billingAddressCollectionFormat).toBeUndefined();
   });
 });

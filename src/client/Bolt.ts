@@ -14,9 +14,16 @@ const ENVIRONMENT_URLS: Record<string, string> = {
   staging: 'https://connect-staging.bolt.com',
 };
 
+const API_URLS: Record<string, string> = {
+  production: 'https://api.bolt.com',
+  sandbox: 'https://api-sandbox.bolt.com',
+  staging: 'https://api-staging.bolt.com',
+};
+
 export class Bolt {
   public readonly publishableKey: string;
   public readonly baseUrl: string;
+  public readonly apiUrl: string;
   public readonly language: string;
   private onPageStyles?: Styles;
 
@@ -25,10 +32,10 @@ export class Bolt {
       throw new Error('Bolt: publishableKey is required');
     }
 
+    const env = config.environment ?? 'production';
     this.publishableKey = config.publishableKey;
-    this.baseUrl =
-      ENVIRONMENT_URLS[config.environment ?? 'production'] ??
-      ENVIRONMENT_URLS.production!;
+    this.baseUrl = ENVIRONMENT_URLS[env] ?? ENVIRONMENT_URLS.production!;
+    this.apiUrl = API_URLS[env] ?? API_URLS.production!;
     this.language = config.language ?? 'en';
 
     initTelemetry(config);

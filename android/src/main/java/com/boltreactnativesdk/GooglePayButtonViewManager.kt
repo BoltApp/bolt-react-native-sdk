@@ -37,6 +37,11 @@ class GooglePayButtonViewManager :
         view.updateButtonType(type ?: "plain")
     }
 
+    @ReactProp(name = "buttonTheme")
+    override fun setButtonTheme(view: GooglePayButtonView, theme: String?) {
+        view.updateButtonTheme(theme ?: "dark")
+    }
+
     @ReactProp(name = "borderRadius", defaultFloat = 0f)
     override fun setBorderRadius(view: GooglePayButtonView, borderRadius: Float) {
         view.updateBorderRadius(PixelUtil.toPixelFromDIP(borderRadius))

@@ -7,6 +7,7 @@ import { codegenNativeComponent } from 'react-native';
 
 interface NativeProps extends ViewProps {
   buttonType: string;
+  buttonTheme?: string;
   borderRadius?: Float;
   onPress: BubblingEventHandler<{}>;
 }
