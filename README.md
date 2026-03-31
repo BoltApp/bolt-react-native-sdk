@@ -1,5 +1,9 @@
 # @boltpay/react-native
 
+[![npm version](https://img.shields.io/npm/v/@boltpay/react-native)](https://www.npmjs.com/package/@boltpay/react-native)
+[![build](https://img.shields.io/github/actions/workflow/status/BoltApp/bolt-react-native-sdk/ci.yml?branch=main)](https://github.com/BoltApp/bolt-react-native-sdk/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/@boltpay/react-native)](LICENSE)
+
 Bolt React Native SDK for payments. Provides Credit Card tokenization, 3D Secure verification, Apple Pay, and Google Pay — all integrated with the Bolt payment platform.
 
 ## Architecture
@@ -214,16 +218,7 @@ Then re-run `expo prebuild` and rebuild.
 
 ### 5. Google Pay (Android)
 
-#### Prerequisites
-
-Google Pay requires two merchant identifiers:
-
-- **`gatewayMerchantId`** — Your Bolt merchant ID from the Bolt dashboard. This is used in the tokenization specification to route the payment through Bolt's gateway.
-- **`googleMerchantId`** (optional) — Your Google-assigned merchant ID from the [Google Pay Business Console](https://pay.google.com/business/console/) (format: `BCR2DN...`). Required for production. In the test environment this can be omitted.
-
-> **Common mistake:** Using your Android application ID (e.g., `com.example.myapp`) for either of these fields will cause an `OR_BIBED_06` error. The `gatewayMerchantId` must be your Bolt merchant ID and the `googleMerchantId` must be the ID from Google's console.
-
-#### Usage
+Merchant and gateway configuration (tokenization spec, merchant IDs) is automatically fetched from Bolt's API using your publishable key — you only need to provide presentation options like currency and amount.
 
 ```typescript
 import { GoogleWallet } from '@boltpay/react-native/payments';
@@ -232,17 +227,15 @@ function CheckoutScreen() {
   return (
     <GoogleWallet
       config={{
-        gatewayMerchantId: 'YOUR_BOLT_MERCHANT_ID',
-        googleMerchantId: 'BCR2DN...', // from Google Pay Business Console
-        merchantName: 'Your Store',
-        countryCode: 'US',
         currencyCode: 'USD',
-        totalPrice: '9.99',
+        amount: '9.99',
+        label: 'Your Store',
+        billingAddressCollectionFormat: 'full',
       }}
       buttonType="buy"
       borderRadius={8}
       onComplete={(result) => {
-        // result: { token, bin?, expiration?, billingAddress?, boltReference? }
+        // result: { token, bin?, expiration?, email?, billingAddress?, boltReference? }
       }}
       onError={(error) => console.error(error)}
     />
@@ -322,10 +315,11 @@ cc.setStyles({
 
 | Prop           | Type                        | Default   | Description                                                                                           |
 | -------------- | --------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
-| `config`       | `GooglePayConfig`           | required  | Gateway/Google merchant IDs, merchant name, country/currency, and total price                         |
+| `config`       | `GooglePayConfig`           | required  | Presentation options: currency, amount, label, billing address format. Merchant config is auto-fetched from Bolt. |
 | `onComplete`   | `(GooglePayResult) => void` | required  | Called with token, bin, expiration, and billing address on success                                    |
 | `onError`      | `(Error) => void`           | —         | Called on payment failure or cancellation                                                             |
 | `buttonType`   | `GooglePayButtonType`       | `'plain'` | Maps to Google Pay `ButtonConstants.ButtonType`. Button text is rendered natively and auto-localized. |
+| `buttonTheme`  | `GooglePayButtonTheme`      | `'dark'`  | Button color theme: `'dark'` or `'light'`. Maps to `ButtonConstants.ButtonTheme`.                     |
 | `borderRadius` | `number`                    | —         | Corner radius in dp applied to the Google Pay button                                                  |
 | `style`        | `ViewStyle`                 | —         | Container style overrides (height, margin, etc.)                                                      |
 
@@ -350,7 +344,9 @@ cc.setStyles({
 - `ApplePayButtonType` — Apple-approved button label variants (`'plain'`, `'buy'`, `'checkout'`, `'book'`, `'subscribe'`, `'donate'`, `'order'`, `'setUp'`, `'inStore'`, `'reload'`, `'addMoney'`, `'topUp'`, `'rent'`, `'support'`, `'contribute'`, `'tip'`)
 - `GooglePayResult` — `{ token, bin?, expiration?, email?, billingAddress?, boltReference? }`
 - `GooglePayButtonType` — Google-approved button label variants (`'plain'`, `'buy'`, `'pay'`, `'checkout'`, `'subscribe'`, `'donate'`, `'order'`, `'book'`)
-- `ApplePayConfig`, `GooglePayConfig` — Configuration for wallet buttons
+- `GooglePayButtonTheme` — Button color theme (`'dark'`, `'light'`)
+- `ApplePayConfig` — Apple Pay configuration (merchant ID, country/currency, total)
+- `GooglePayConfig` — `{ billingAddressCollectionFormat?, currencyCode?, label?, amount? }` (merchant/gateway config auto-fetched from Bolt)
 
 ### Error Codes (`ThreeDSError`)
 

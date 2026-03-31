@@ -116,6 +116,11 @@ export type GooglePayButtonType =
   | 'order'
   | 'book';
 
+/**
+ * Google Pay button color theme. Maps to ButtonConstants.ButtonTheme on Android.
+ */
+export type GooglePayButtonTheme = 'dark' | 'light';
+
 // ── Apple Pay Types ─────────────────────────────────────────
 
 export interface ApplePayResult {
@@ -173,21 +178,36 @@ export interface GooglePayBillingAddress {
   phoneNumber?: string;
 }
 
+/**
+ * Configuration for the Google Pay button. Merchant/gateway config is
+ * automatically fetched from Bolt's `/v1/apm_config/googlepay` endpoint
+ * using the publishable key — you only need to provide presentation options.
+ */
 export interface GooglePayConfig {
-  /**
-   * Your Bolt merchant ID, used as `gatewayMerchantId` in the tokenization
-   * specification. This is the merchant identifier from your Bolt dashboard.
-   */
-  gatewayMerchantId: string;
-  /**
-   * Your Google-assigned merchant ID from the Google Pay & Wallet Console
-   * (https://pay.google.com/business/console). Format: `BCR2DN...`.
-   * Required for production; in TEST environment you may pass an empty string.
-   */
-  googleMerchantId?: string;
-  merchantName: string;
-  countryCode: string;
-  currencyCode: string;
-  totalPrice: string;
-  totalPriceStatus?: 'FINAL' | 'ESTIMATED';
+  /** Billing address collection: "full" collects all fields, "none" skips. Defaults to "full". */
+  billingAddressCollectionFormat?: 'full' | 'none';
+  /** ISO 4217 currency code. Defaults to "USD". */
+  currencyCode?: string;
+  /** Label shown in the Google Pay sheet (e.g. "Store card for future charges"). */
+  label?: string;
+  /** Total price as a string (e.g. "10.00"). Defaults to "0.00". */
+  amount?: string;
+}
+
+// ── Internal Google Pay APM Config (from Bolt API) ─────────
+
+/** Shape returned by GET /v1/apm_config/googlepay */
+export interface GooglePayAPMConfigResponse {
+  merchant_config?: GooglePayAPMConfig;
+  bolt_config: GooglePayAPMConfig;
+}
+
+export interface GooglePayAPMConfig {
+  credit_card_processor: string;
+  tokenization_specification: {
+    type: string;
+    parameters: Record<string, string>;
+  };
+  merchant_id: string;
+  merchant_name: string;
 }

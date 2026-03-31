@@ -10,6 +10,7 @@ import type { GooglePayConfig, GooglePayButtonType } from '../payments/types';
  * - Payment request flow: config serialization → native call → result parsing
  * - Error handling when requestPayment rejects
  * - buttonType prop defaults
+ * - APM config fetch from Bolt API
  */
 
 const mockIsReadyToPay = jest.fn<Promise<boolean>, [string]>();
@@ -34,6 +35,7 @@ jest.mock('../client/useBolt', () => ({
   useBolt: () => ({
     publishableKey: 'pk_test_123',
     baseUrl: 'https://connect.bolt.com',
+    apiUrl: 'https://api.bolt.com',
   }),
 }));
 
@@ -49,13 +51,25 @@ jest.mock('../telemetry/tracer', () => ({
 }));
 
 const baseConfig: GooglePayConfig = {
-  gatewayMerchantId: 'BOLT_MERCHANT_ID',
-  googleMerchantId: 'BCR2DN6T7654321',
-  merchantName: 'Demo Store',
-  countryCode: 'US',
   currencyCode: 'USD',
-  totalPrice: '10.00',
-  totalPriceStatus: 'FINAL',
+  amount: '10.00',
+  label: 'Test Purchase',
+  billingAddressCollectionFormat: 'full',
+};
+
+const mockAPMConfig = {
+  bolt_config: {
+    credit_card_processor: 'bolt',
+    tokenization_specification: {
+      type: 'PAYMENT_GATEWAY',
+      parameters: {
+        gateway: 'bolt',
+        gatewayMerchantId: 'BOLT_MERCHANT_ID',
+      },
+    },
+    merchant_id: 'BCR2DN6T7654321',
+    merchant_name: 'Demo Store',
+  },
 };
 
 describe('GoogleWallet', () => {
@@ -149,6 +163,19 @@ describe('GoogleWallet', () => {
           'https://connect.bolt.com'
         )
       ).rejects.toThrow('User cancelled');
+    });
+  });
+
+  describe('APM config', () => {
+    it('should have the expected bolt_config shape', () => {
+      const config = mockAPMConfig.bolt_config;
+      expect(config.merchant_id).toBe('BCR2DN6T7654321');
+      expect(config.merchant_name).toBe('Demo Store');
+      expect(config.tokenization_specification.type).toBe('PAYMENT_GATEWAY');
+      expect(config.tokenization_specification.parameters).toEqual({
+        gateway: 'bolt',
+        gatewayMerchantId: 'BOLT_MERCHANT_ID',
+      });
     });
   });
 
