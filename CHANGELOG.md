@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.6.1...v0.7.0) (2026-04-01)
+
+### Features
+
+* fetch Google Pay config from Bolt API, add button theme support ([#46](https://github.com/BoltApp/bolt-react-native-sdk/issues/46)) ([30d29fb](https://github.com/BoltApp/bolt-react-native-sdk/commit/30d29fb1f10534808b9773c78c1e05911a5fab11))
+
 ## [0.6.1](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.6.0...v0.6.1) (2026-03-30)
 
 ### Bug Fixes
