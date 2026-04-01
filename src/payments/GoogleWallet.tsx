@@ -173,6 +173,7 @@ const buildNativeConfig = (
     merchantId: apmConfig.merchant_id,
     merchantName: apmConfig.merchant_name,
     tokenizationSpecification: apmConfig.tokenization_specification,
+    countryCode: 'US', //apmConfig.country_code ?? 'US', TODO: add country code to the config from API
     // From developer
     currencyCode: config.currencyCode ?? 'USD',
     totalPrice: config.amount ?? '0.00',
