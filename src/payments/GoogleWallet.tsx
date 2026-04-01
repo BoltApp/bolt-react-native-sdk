@@ -6,6 +6,9 @@ import type {
   GooglePayResult,
   GooglePayConfig,
   GooglePayButtonType,
+  GooglePayButtonTheme,
+  GooglePayAPMConfigResponse,
+  GooglePayAPMConfig,
 } from './types';
 import { startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
@@ -25,14 +28,41 @@ export interface GoogleWalletProps {
   onError?: (error: Error) => void;
   style?: ViewStyle;
   buttonType?: GooglePayButtonType;
+  buttonTheme?: GooglePayButtonTheme;
   borderRadius?: number;
 }
+
+/**
+ * Fetch Google Pay configuration from Bolt's API.
+ * The config includes tokenization spec, merchant ID, and merchant name
+ * so the developer doesn't need to provide them.
+ */
+const fetchGooglePayAPMConfig = async (
+  apiUrl: string,
+  publishableKey: string
+): Promise<GooglePayAPMConfigResponse> => {
+  const response = await fetch(`${apiUrl}/v1/apm_config/googlepay`, {
+    method: 'GET',
+    headers: {
+      merchant_token: publishableKey,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch Google Pay config: ${response.status} ${response.statusText}`
+    );
+  }
+
+  return response.json();
+};
 
 /**
  * <GoogleWallet /> — renders a native Google Pay button that triggers the
  * native PaymentsClient payment sheet via the BoltGooglePay TurboModule.
  *
- * Only renders on Android when Google Pay is available.
+ * Merchant/gateway configuration is automatically fetched from Bolt's API
+ * using the publishable key. Only renders on Android when Google Pay is available.
  */
 export const GoogleWallet = ({
   config,
@@ -40,23 +70,47 @@ export const GoogleWallet = ({
   onError,
   style,
   buttonType = 'plain',
+  buttonTheme,
   borderRadius,
 }: GoogleWalletProps) => {
   const bolt = useBolt();
   const [available, setAvailable] = useState(false);
+  const [apmConfigResponse, setApmConfigResponse] =
+    useState<GooglePayAPMConfigResponse | null>(null);
 
+  // Fetch Bolt Google Pay config on mount
   useEffect(() => {
-    if (Platform.OS !== 'android' || !NativeGooglePay) {
+    if (Platform.OS !== 'android') return;
+
+    fetchGooglePayAPMConfig(bolt.apiUrl, bolt.publishableKey)
+      .then(setApmConfigResponse)
+      .catch((err) => {
+        onError?.(
+          err instanceof Error
+            ? err
+            : new Error('Failed to fetch Google Pay config')
+        );
+      });
+  }, [bolt.apiUrl, bolt.publishableKey, onError]);
+
+  // Check Google Pay readiness once we have the APM config
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !NativeGooglePay || !apmConfigResponse) {
       setAvailable(false);
       return;
     }
-    NativeGooglePay.isReadyToPay(JSON.stringify(config))
+
+    const nativeConfig = buildNativeConfig(
+      config,
+      apmConfigResponse.bolt_config
+    );
+    NativeGooglePay.isReadyToPay(JSON.stringify(nativeConfig))
       .then(setAvailable)
       .catch(() => setAvailable(false));
-  }, [config]);
+  }, [config, apmConfigResponse]);
 
   const handlePress = useCallback(async () => {
-    if (!NativeGooglePay) {
+    if (!NativeGooglePay || !apmConfigResponse) {
       onError?.(new Error('Google Pay is not available'));
       return;
     }
@@ -67,8 +121,12 @@ export const GoogleWallet = ({
     });
 
     try {
+      const nativeConfig = buildNativeConfig(
+        config,
+        apmConfigResponse.bolt_config
+      );
       const resultJson = await NativeGooglePay.requestPayment(
-        JSON.stringify(config),
+        JSON.stringify(nativeConfig),
         bolt.publishableKey,
         bolt.baseUrl
       );
@@ -84,7 +142,7 @@ export const GoogleWallet = ({
       span.end();
       onError?.(error);
     }
-  }, [config, bolt, onComplete, onError]);
+  }, [config, apmConfigResponse, bolt, onComplete, onError]);
 
   if (!available || !BoltGooglePayButton) {
     return null;
@@ -93,10 +151,35 @@ export const GoogleWallet = ({
   return (
     <BoltGooglePayButton
       buttonType={buttonType}
+      buttonTheme={buttonTheme}
       borderRadius={borderRadius}
       // eslint-disable-next-line react-native/no-inline-styles
       style={[{ height: 48 }, style]}
       onPress={handlePress}
     />
   );
+};
+
+/**
+ * Build the config object sent to the native module by merging
+ * the Bolt API config with the developer's presentation options.
+ */
+const buildNativeConfig = (
+  config: GooglePayConfig,
+  apmConfig: GooglePayAPMConfig
+) => {
+  return {
+    // From Bolt API
+    merchantId: apmConfig.merchant_id,
+    merchantName: apmConfig.merchant_name,
+    tokenizationSpecification: apmConfig.tokenization_specification,
+    countryCode: 'US', //apmConfig.country_code ?? 'US', TODO: add country code to the config from API
+    // From developer
+    currencyCode: config.currencyCode ?? 'USD',
+    totalPrice: config.amount ?? '0.00',
+    totalPriceStatus: 'FINAL',
+    totalPriceLabel: config.label,
+    billingAddressFormat:
+      config.billingAddressCollectionFormat === 'none' ? 'NONE' : 'FULL',
+  };
 };

@@ -31,6 +31,7 @@ export type {
   ApplePayBillingContact,
   ApplePayConfig,
   GooglePayButtonType,
+  GooglePayButtonTheme,
   GooglePayResult,
   GooglePayBillingAddress,
   GooglePayConfig,

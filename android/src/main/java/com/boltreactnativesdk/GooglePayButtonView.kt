@@ -19,6 +19,7 @@ import com.google.android.gms.wallet.button.PayButton
 class GooglePayButtonView(context: Context) : FrameLayout(context) {
 
     private var currentButtonType: String = "plain"
+    private var currentButtonTheme: String = "dark"
     private var cornerRadiusPx: Float = 0f
 
     init {
@@ -46,12 +47,19 @@ class GooglePayButtonView(context: Context) : FrameLayout(context) {
         rebuildButton()
     }
 
+    fun updateButtonTheme(theme: String) {
+        if (theme == currentButtonTheme) return
+        currentButtonTheme = theme
+        rebuildButton()
+    }
+
     private fun rebuildButton() {
         removeAllViews()
 
         val button = PayButton(context)
         val options = ButtonOptions.newBuilder()
             .setButtonType(mapButtonType(currentButtonType))
+            .setButtonTheme(mapButtonTheme(currentButtonTheme))
             .setAllowedPaymentMethods(ALLOWED_PAYMENT_METHODS)
             .build()
         button.initialize(options)
@@ -83,6 +91,11 @@ class GooglePayButtonView(context: Context) : FrameLayout(context) {
             "order" -> ButtonConstants.ButtonType.ORDER
             "subscribe" -> ButtonConstants.ButtonType.SUBSCRIBE
             else -> ButtonConstants.ButtonType.PLAIN
+        }
+
+        fun mapButtonTheme(theme: String): Int = when (theme) {
+            "light" -> ButtonConstants.ButtonTheme.LIGHT
+            else -> ButtonConstants.ButtonTheme.DARK
         }
 
         // Minimal allowed payment methods JSON required by PayButton.initialize()

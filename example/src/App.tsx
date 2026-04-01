@@ -237,13 +237,9 @@ const AddCardScreen = () => {
         {Platform.OS === 'android' && (
           <GoogleWallet
             config={{
-              gatewayMerchantId: 'BOLT_MERCHANT_ID',
-              googleMerchantId: 'BCR2DN6T7654321',
-              merchantName: 'Demo Store',
-              countryCode: 'US',
               currencyCode: 'USD',
-              totalPrice: '0.00',
-              totalPriceStatus: 'ESTIMATED',
+              amount: '0.00',
+              label: 'Card Verification',
             }}
             onComplete={handleGooglePayComplete}
             onError={handleWalletError}
