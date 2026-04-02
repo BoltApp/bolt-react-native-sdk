@@ -114,8 +114,28 @@ export const ApplePayWebView = ({
       try {
         const outer = JSON.parse(raw);
 
+        // Unwrap bridge postMessage envelope produced by injectedBridge.ts
+        let unwrapped = outer;
+        if (
+          unwrapped?.__boltBridge === true &&
+          unwrapped.type === 'postMessage' &&
+          unwrapped.data !== undefined
+        ) {
+          const inner = unwrapped.data;
+          if (typeof inner === 'string') {
+            try {
+              unwrapped = JSON.parse(inner);
+            } catch {
+              // Inner payload is a plain string, keep as-is
+              unwrapped = inner;
+            }
+          } else {
+            unwrapped = inner;
+          }
+        }
+
         // Height change from iframe
-        let msg = outer;
+        let msg = unwrapped;
         if (typeof msg === 'string') {
           try {
             msg = JSON.parse(msg);
@@ -129,9 +149,8 @@ export const ApplePayWebView = ({
         }
 
         // Apple Pay result messages
-        const applePayMsg = parseBoltMessage(raw);
+        const applePayMsg = parseBoltMessage(unwrapped);
         if (!applePayMsg) return;
-
         if (applePayMsg.type === 'addCardFromApplePaySuccess') {
           const message = applePayMsg.message as Record<string, unknown>;
           const tokenResult = message.token as
