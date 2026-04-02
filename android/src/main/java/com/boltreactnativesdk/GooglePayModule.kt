@@ -1,6 +1,8 @@
 package com.boltreactnativesdk
 
 import android.app.Activity
+import android.content.Intent
+import com.facebook.react.bridge.ActivityEventListener
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -27,7 +29,12 @@ import java.net.URL
  * and passed down in the config JSON.
  */
 class GooglePayModule(reactContext: ReactApplicationContext) :
-    ReactContextBaseJavaModule(reactContext) {
+    ReactContextBaseJavaModule(reactContext),
+    ActivityEventListener {
+
+    init {
+        reactContext.addActivityEventListener(this)
+    }
 
     companion object {
         const val NAME = "BoltGooglePay"
@@ -41,21 +48,26 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
     private var pendingPublishableKey: String = ""
     private var pendingBaseUrl: String = ""
 
-    private fun getPaymentsClient(): PaymentsClient {
+    private fun getPaymentsClient(activity: Activity): PaymentsClient {
         if (paymentsClient == null) {
             val walletOptions = Wallet.WalletOptions.Builder()
                 .setEnvironment(WalletConstants.ENVIRONMENT_TEST)
                 .build()
-            paymentsClient = Wallet.getPaymentsClient(reactApplicationContext, walletOptions)
+            paymentsClient = Wallet.getPaymentsClient(activity, walletOptions)
         }
         return paymentsClient!!
     }
 
     @ReactMethod
     fun isReadyToPay(configJson: String, promise: Promise) {
+        val activity = reactApplicationContext.currentActivity
+        if (activity == null) {
+            promise.resolve(false)
+            return
+        }
         try {
             val isReadyToPayRequest = IsReadyToPayRequest.fromJson(buildIsReadyToPayRequest().toString())
-            getPaymentsClient().isReadyToPay(isReadyToPayRequest)
+            getPaymentsClient(activity).isReadyToPay(isReadyToPayRequest)
                 .addOnCompleteListener { task ->
                     promise.resolve(task.isSuccessful && task.result == true)
                 }
@@ -82,7 +94,7 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
             }
 
             AutoResolveHelper.resolveTask(
-                getPaymentsClient().loadPaymentData(request),
+                getPaymentsClient(activity).loadPaymentData(request),
                 activity,
                 LOAD_PAYMENT_DATA_REQUEST_CODE
             )
@@ -91,11 +103,20 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    // ActivityEventListener — receives onActivityResult forwarded by React Native
+    override fun onActivityResult(activity: Activity, requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == LOAD_PAYMENT_DATA_REQUEST_CODE) {
+            val paymentData = data?.let { PaymentData.getFromIntent(it) }
+            handlePaymentResult(resultCode, paymentData)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {}
+
     /**
-     * Called from the Activity's onActivityResult.
      * Processes the Google Pay payment data and tokenizes via Bolt.
      */
-    fun handlePaymentResult(resultCode: Int, paymentData: PaymentData?) {
+    private fun handlePaymentResult(resultCode: Int, paymentData: PaymentData?) {
         val promise = pendingPromise ?: return
         pendingPromise = null
 
