@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.1](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.7.0...v0.7.1) (2026-04-02)
+
+### Miscellaneous
+
+* untrack .xcode.env.local and add to .gitignore ([#44](https://github.com/BoltApp/bolt-react-native-sdk/issues/44)) ([a02482d](https://github.com/BoltApp/bolt-react-native-sdk/commit/a02482d8502785db0c24cb3e2f8c19bcbf1820ea))
+
 ## [0.7.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.6.1...v0.7.0) (2026-04-01)
 
 ### Features

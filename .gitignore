@@ -31,6 +31,7 @@ example/android/app/.cxx/
 
 
 # iOS
+example/ios/.xcode.env.local
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 **/*.xcworkspace/xcuserdata/
