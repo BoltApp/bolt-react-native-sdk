@@ -122,7 +122,16 @@ export const ApplePayWebView = ({
           unwrapped.data !== undefined
         ) {
           const inner = unwrapped.data;
-          unwrapped = typeof inner === 'string' ? JSON.parse(inner) : inner;
+          if (typeof inner === 'string') {
+            try {
+              unwrapped = JSON.parse(inner);
+            } catch {
+              // Inner payload is a plain string, keep as-is
+              unwrapped = inner;
+            }
+          } else {
+            unwrapped = inner;
+          }
         }
 
         // Height change from iframe
@@ -140,11 +149,8 @@ export const ApplePayWebView = ({
         }
 
         // Apple Pay result messages
-        const applePayMsg = parseBoltMessage(
-          typeof unwrapped === 'string' ? unwrapped : JSON.stringify(unwrapped)
-        );
+        const applePayMsg = parseBoltMessage(unwrapped);
         if (!applePayMsg) return;
-
         if (applePayMsg.type === 'addCardFromApplePaySuccess') {
           const message = applePayMsg.message as Record<string, unknown>;
           const tokenResult = message.token as
