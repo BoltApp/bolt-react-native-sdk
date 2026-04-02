@@ -13,11 +13,11 @@ import {
   BoltProvider,
   setDevTelemetryConfig,
 } from '@boltpay/react-native';
+import { boltConfig } from './boltConfig';
 import { devTelemetryConfig } from './devTelemetryConfig';
 
-// Local dev only — credentials come from example/src/devTelemetryConfig.ts
-// (gitignored). Run `yarn gen-dev-telemetry-config` to generate it from .env.
-// Set enabled: false in devTelemetryConfig.ts to turn off telemetry locally.
+// Local dev only — credentials come from gitignored config files.
+// Run `yarn gen-bolt-config` and `yarn gen-dev-telemetry-config` to generate from .env.
 if (devTelemetryConfig.enabled) {
   setDevTelemetryConfig(devTelemetryConfig);
 }
@@ -33,15 +33,8 @@ import type {
   GooglePayResult,
 } from '@boltpay/react-native/payments';
 
-// Initialize Bolt with your publishable key
-const bolt = new Bolt({
-  publishableKey:
-    // 3ds:
-    //'tFb8YsxCSGSb.fS3kkcd6a-tl.713c7e045966cb916ccf42ba5becfcebf1a3a8042584bbac5cc74f8a8feebd2b',
-    //'yayzpqS9Y7Qb.MBLn0CaZCM7I.aa226a2b80c3aac19300f82dc6be8e92c91b8df1d527311a79e8b190af1f6b2b',
-    'Q-5UMctK0oYN.ilCdYSP4NIPM.86e026dc5718eb7de83a55482f384cfcaf6be4c88df3b138d976188a4213e482',
-  environment: 'staging',
-});
+// Initialize Bolt — publishable key and environment come from boltConfig.ts (gitignored).
+const bolt = new Bolt(boltConfig);
 
 // Global styles applied to all Bolt components
 bolt.configureOnPageStyles({
@@ -69,6 +62,10 @@ const AddCardScreen = () => {
   const [loading, setLoading] = useState(false);
   const [cardValid, setCardValid] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [walletStatus, setWalletStatus] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   // Listen for field events
   cc.on('valid', () => {
@@ -140,31 +137,27 @@ const AddCardScreen = () => {
   // Apple Pay: capture token + billing contact (including email for Bolt account creation)
   const handleApplePayComplete = useCallback((result: ApplePayResult) => {
     setTokenResult(result);
-    Alert.alert(
-      'Apple Pay Card Added',
+    const msg =
       `Token: ${result.token.slice(0, 20)}...\n` +
-        `Email: ${result.billingContact?.emailAddress ?? 'N/A'}\n` +
-        `Phone: ${result.billingContact?.phoneNumber ?? 'N/A'}\n` +
-        `Name: ${result.billingContact?.givenName ?? ''} ${result.billingContact?.familyName ?? ''}\n\n` +
-        'Next: merchant backend calls Bolt add-card API with this token. ' +
-        'Bolt creates account using email from Apple Pay response.'
-    );
+      `Email: ${result.billingContact?.emailAddress ?? 'N/A'}\n` +
+      `Name: ${result.billingContact?.givenName ?? ''} ${result.billingContact?.familyName ?? ''}`;
+    setWalletStatus({ type: 'success', message: msg });
+    Alert.alert('Apple Pay Card Added', msg);
   }, []);
 
   // Google Pay: capture token + billing address + email
   const handleGooglePayComplete = useCallback((result: GooglePayResult) => {
-    Alert.alert(
-      'Google Pay Card Added',
+    const msg =
       `Token: ${result.token.slice(0, 20)}...\n` +
-        `Email: ${result.email ?? 'N/A'}\n` +
-        `Name: ${result.billingAddress?.name ?? 'N/A'}\n` +
-        `Phone: ${result.billingAddress?.phoneNumber ?? 'N/A'}\n` +
-        `Bolt Ref: ${result.boltReference ?? 'N/A'}\n\n` +
-        'Next: merchant backend calls Bolt add-card API with this token.'
-    );
+      `Email: ${result.email ?? 'N/A'}\n` +
+      `Name: ${result.billingAddress?.name ?? 'N/A'}\n` +
+      `Bolt Ref: ${result.boltReference ?? 'N/A'}`;
+    setWalletStatus({ type: 'success', message: msg });
+    Alert.alert('Google Pay Card Added', msg);
   }, []);
 
   const handleWalletError = useCallback((error: Error) => {
+    setWalletStatus({ type: 'error', message: error.message });
     Alert.alert('Wallet Error', error.message);
   }, []);
 
@@ -248,6 +241,24 @@ const AddCardScreen = () => {
             onError={handleWalletError}
             style={styles.walletButton}
           />
+        )}
+
+        {walletStatus && (
+          <View
+            style={[
+              styles.walletStatus,
+              walletStatus.type === 'success'
+                ? styles.walletStatusSuccess
+                : styles.walletStatusError,
+            ]}
+          >
+            <Text style={styles.walletStatusTitle}>
+              {walletStatus.type === 'success' ? 'Success' : 'Error'}
+            </Text>
+            <Text style={styles.walletStatusMessage}>
+              {walletStatus.message}
+            </Text>
+          </View>
         )}
       </View>
     </ScrollView>
@@ -493,6 +504,30 @@ const styles = StyleSheet.create({
   },
   walletButton: {
     marginTop: 12,
+  },
+  walletStatus: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+  },
+  walletStatusSuccess: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#86efac',
+  },
+  walletStatusError: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+  },
+  walletStatusTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  walletStatusMessage: {
+    fontSize: 12,
+    color: '#374151',
   },
   resultSpacing: {
     marginTop: 16,
