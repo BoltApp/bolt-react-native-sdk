@@ -44,7 +44,7 @@ const fetchGooglePayAPMConfig = async (
   const response = await fetch(`${apiUrl}/v1/apm_config/googlepay`, {
     method: 'GET',
     headers: {
-      merchant_token: publishableKey,
+      'x-publishable-key': publishableKey,
     },
   });
 
