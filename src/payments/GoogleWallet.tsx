@@ -37,15 +37,13 @@ export interface GoogleWalletProps {
  * The config includes tokenization spec, merchant ID, and merchant name
  * so the developer doesn't need to provide them.
  */
-const fetchGooglePayAPMConfig = async (
+export const fetchGooglePayAPMConfig = async (
   apiUrl: string,
-  publishableKey: string
+  headers: Record<string, string>
 ): Promise<GooglePayAPMConfigResponse> => {
   const response = await fetch(`${apiUrl}/v1/apm_config/googlepay`, {
     method: 'GET',
-    headers: {
-      merchant_token: publishableKey,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -82,7 +80,7 @@ export const GoogleWallet = ({
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
-    fetchGooglePayAPMConfig(bolt.apiUrl, bolt.publishableKey)
+    fetchGooglePayAPMConfig(bolt.apiUrl, bolt.apiHeaders())
       .then(setApmConfigResponse)
       .catch((err) => {
         onError?.(
@@ -91,7 +89,7 @@ export const GoogleWallet = ({
             : new Error('Failed to fetch Google Pay config')
         );
       });
-  }, [bolt.apiUrl, bolt.publishableKey, onError]);
+  }, [bolt, onError]);
 
   // Check Google Pay readiness once we have the APM config
   useEffect(() => {

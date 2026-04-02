@@ -52,4 +52,14 @@ export class Bolt {
   getOnPageStyles(): Styles | undefined {
     return this.onPageStyles;
   }
+
+  /**
+   * Returns the standard HTTP headers required for Bolt REST API calls.
+   * Centralised here so every API caller uses a consistent header name.
+   */
+  apiHeaders(): Record<string, string> {
+    return {
+      'X-Publishable-Key': this.publishableKey,
+    };
+  }
 }
