@@ -31,6 +31,7 @@ example/android/app/.cxx/
 
 
 # iOS
+example/ios/.xcode.env.local
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 **/*.xcworkspace/xcuserdata/
@@ -57,8 +58,9 @@ yarn-error.log*
 .env.local
 .env.*
 
-# Generated dev telemetry config (contains credentials — never commit)
+# Generated dev configs (contain credentials — never commit)
 example/src/devTelemetryConfig.ts
+example/src/boltConfig.ts
 
 # TypeScript
 *.tsbuildinfo
