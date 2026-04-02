@@ -43,19 +43,20 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
 
     override fun getName(): String = NAME
 
-    private var paymentsClient: PaymentsClient? = null
     private var pendingPromise: Promise? = null
     private var pendingPublishableKey: String = ""
     private var pendingBaseUrl: String = ""
 
     private fun getPaymentsClient(activity: Activity): PaymentsClient {
-        if (paymentsClient == null) {
-            val walletOptions = Wallet.WalletOptions.Builder()
-                .setEnvironment(WalletConstants.ENVIRONMENT_TEST)
-                .build()
-            paymentsClient = Wallet.getPaymentsClient(activity, walletOptions)
-        }
-        return paymentsClient!!
+        val walletOptions = Wallet.WalletOptions.Builder()
+            .setEnvironment(WalletConstants.ENVIRONMENT_TEST)
+            .build()
+        return Wallet.getPaymentsClient(activity, walletOptions)
+    }
+
+    override fun invalidate() {
+        reactApplicationContext.removeActivityEventListener(this)
+        super.invalidate()
     }
 
     @ReactMethod
@@ -89,6 +90,9 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
 
             val activity = reactApplicationContext.currentActivity
             if (activity == null) {
+                pendingPromise = null
+                pendingPublishableKey = ""
+                pendingBaseUrl = ""
                 promise.reject("NO_ACTIVITY", "No current activity")
                 return
             }
