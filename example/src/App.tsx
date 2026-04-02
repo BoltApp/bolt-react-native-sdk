@@ -62,7 +62,9 @@ const AddCardScreen = () => {
     showBillingZIPField: true,
   });
   const threeDSecure = useThreeDSecure();
-  const [tokenResult, setTokenResult] = useState<TokenResult | null>(null);
+  const [tokenResult, setTokenResult] = useState<
+    TokenResult | ApplePayResult | null
+  >(null);
   const [threeDSRef, setThreeDSRef] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [cardValid, setCardValid] = useState(false);
@@ -137,6 +139,7 @@ const AddCardScreen = () => {
 
   // Apple Pay: capture token + billing contact (including email for Bolt account creation)
   const handleApplePayComplete = useCallback((result: ApplePayResult) => {
+    setTokenResult(result);
     Alert.alert(
       'Apple Pay Card Added',
       `Token: ${result.token.slice(0, 20)}...\n` +
