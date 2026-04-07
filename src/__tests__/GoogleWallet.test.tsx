@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import type { GooglePayConfig, GooglePayButtonType } from '../payments/types';
-import { fetchGooglePayAPMConfig } from '../payments/GoogleWallet';
+import { fetchGooglePayAPMConfig } from '../payments/googlePayApi';
 
 /**
  * Tests for the GoogleWallet component logic.

@@ -12,6 +12,9 @@ import type {
 } from './types';
 import { startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
+import { fetchGooglePayAPMConfig } from './googlePayApi';
+
+export { fetchGooglePayAPMConfig };
 
 // Conditional require: Metro inlines Platform.OS and eliminates the dead branch at bundle
 // time, so NativeGooglePayButton (which calls codegenNativeComponent) is never loaded on
@@ -32,28 +35,6 @@ export interface GoogleWalletProps {
   borderRadius?: number;
 }
 
-/**
- * Fetch Google Pay configuration from Bolt's API.
- * The config includes tokenization spec, merchant ID, and merchant name
- * so the developer doesn't need to provide them.
- */
-export const fetchGooglePayAPMConfig = async (
-  apiUrl: string,
-  headers: Record<string, string>
-): Promise<GooglePayAPMConfigResponse> => {
-  const response = await fetch(`${apiUrl}/v1/apm_config/googlepay`, {
-    method: 'GET',
-    headers,
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch Google Pay config: ${response.status} ${response.statusText}`
-    );
-  }
-
-  return response.json();
-};
 
 /**
  * <GoogleWallet /> — renders a native Google Pay button that triggers the
