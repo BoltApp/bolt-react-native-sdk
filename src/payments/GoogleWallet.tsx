@@ -35,7 +35,6 @@ export interface GoogleWalletProps {
   borderRadius?: number;
 }
 
-
 /**
  * <GoogleWallet /> — renders a native Google Pay button that triggers the
  * native PaymentsClient payment sheet via the BoltGooglePay TurboModule.
