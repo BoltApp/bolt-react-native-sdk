@@ -106,7 +106,7 @@ export const GoogleWallet = ({
     NativeGooglePay.isReadyToPay(JSON.stringify(nativeConfig))
       .then(setAvailable)
       .catch(() => setAvailable(false));
-  }, [config, apmConfigResponse]);
+  }, [config, apmConfigResponse, bolt.environment]);
 
   const handlePress = useCallback(async () => {
     if (!NativeGooglePay || !apmConfigResponse) {
