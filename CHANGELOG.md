@@ -1,5 +1,7 @@
 # Changelog
 
+## [0.7.4](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.7.3...v0.7.4) (2026-04-07)
+
 ## [0.7.3](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.7.2...v0.7.3) (2026-04-07)
 
 ### Bug Fixes
