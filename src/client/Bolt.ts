@@ -22,6 +22,7 @@ const API_URLS: Record<string, string> = {
 
 export class Bolt {
   public readonly publishableKey: string;
+  public readonly environment: 'production' | 'sandbox' | 'staging';
   public readonly baseUrl: string;
   public readonly apiUrl: string;
   public readonly language: string;
@@ -34,6 +35,7 @@ export class Bolt {
 
     const env = config.environment ?? 'production';
     this.publishableKey = config.publishableKey;
+    this.environment = env;
     this.baseUrl = ENVIRONMENT_URLS[env] ?? ENVIRONMENT_URLS.production!;
     this.apiUrl = API_URLS[env] ?? API_URLS.production!;
     this.language = config.language ?? 'en';

@@ -47,11 +47,27 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
     private var pendingPublishableKey: String = ""
     private var pendingBaseUrl: String = ""
 
-    private fun getPaymentsClient(activity: Activity): PaymentsClient {
+    private fun getPaymentsClient(activity: Activity, walletEnv: Int): PaymentsClient {
         val walletOptions = Wallet.WalletOptions.Builder()
-            .setEnvironment(WalletConstants.ENVIRONMENT_TEST)
+            .setEnvironment(walletEnv)
             .build()
         return Wallet.getPaymentsClient(activity, walletOptions)
+    }
+
+    /**
+     * Maps the JS-side googlePayEnvironment string ("PRODUCTION" | "TEST") to
+     * the matching WalletConstants value. Defaults to ENVIRONMENT_TEST so that
+     * staging / sandbox traffic never hits the production Google Pay endpoint.
+     */
+    private fun walletEnvFromConfig(configJson: String): Int {
+        return try {
+            if (JSONObject(configJson).optString("googlePayEnvironment") == "PRODUCTION")
+                WalletConstants.ENVIRONMENT_PRODUCTION
+            else
+                WalletConstants.ENVIRONMENT_TEST
+        } catch (e: Exception) {
+            WalletConstants.ENVIRONMENT_TEST
+        }
     }
 
     override fun invalidate() {
@@ -68,7 +84,7 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
         }
         try {
             val isReadyToPayRequest = IsReadyToPayRequest.fromJson(buildIsReadyToPayRequest().toString())
-            getPaymentsClient(activity).isReadyToPay(isReadyToPayRequest)
+            getPaymentsClient(activity, walletEnvFromConfig(configJson)).isReadyToPay(isReadyToPayRequest)
                 .addOnCompleteListener { task ->
                     promise.resolve(task.isSuccessful && task.result == true)
                 }
@@ -98,7 +114,7 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
             }
 
             AutoResolveHelper.resolveTask(
-                getPaymentsClient(activity).loadPaymentData(request),
+                getPaymentsClient(activity, walletEnvFromConfig(configJson)).loadPaymentData(request),
                 activity,
                 LOAD_PAYMENT_DATA_REQUEST_CODE
             )

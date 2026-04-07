@@ -100,7 +100,8 @@ export const GoogleWallet = ({
 
     const nativeConfig = buildNativeConfig(
       config,
-      apmConfigResponse.bolt_config
+      apmConfigResponse.bolt_config,
+      bolt.environment
     );
     NativeGooglePay.isReadyToPay(JSON.stringify(nativeConfig))
       .then(setAvailable)
@@ -121,7 +122,8 @@ export const GoogleWallet = ({
     try {
       const nativeConfig = buildNativeConfig(
         config,
-        apmConfigResponse.bolt_config
+        apmConfigResponse.bolt_config,
+        bolt.environment
       );
       const resultJson = await NativeGooglePay.requestPayment(
         JSON.stringify(nativeConfig),
@@ -164,7 +166,8 @@ export const GoogleWallet = ({
  */
 const buildNativeConfig = (
   config: GooglePayConfig,
-  apmConfig: GooglePayAPMConfig
+  apmConfig: GooglePayAPMConfig,
+  environment: 'production' | 'sandbox' | 'staging'
 ) => {
   return {
     // From Bolt API
@@ -179,5 +182,7 @@ const buildNativeConfig = (
     totalPriceLabel: config.label,
     billingAddressFormat:
       config.billingAddressCollectionFormat === 'none' ? 'NONE' : 'FULL',
+    // Tells the native module which Google Pay environment to use
+    googlePayEnvironment: environment === 'production' ? 'PRODUCTION' : 'TEST',
   };
 };
