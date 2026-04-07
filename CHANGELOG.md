@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.3](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.7.2...v0.7.3) (2026-04-07)
+
+### Bug Fixes
+
+* **android:** fix Google Pay crash — Activity context and ActivityEventListener ([#49](https://github.com/BoltApp/bolt-react-native-sdk/issues/49)) ([d168760](https://github.com/BoltApp/bolt-react-native-sdk/commit/d16876069c0f448bae2a6d262a381d5c211d3590))
+
 ## [0.7.2](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.7.1...v0.7.2) (2026-04-02)
 
 ### Miscellaneous
