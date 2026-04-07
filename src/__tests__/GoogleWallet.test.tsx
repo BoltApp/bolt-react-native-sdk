@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import type { GooglePayConfig, GooglePayButtonType } from '../payments/types';
+import { fetchGooglePayAPMConfig } from '../payments/googlePayApi';
 
 /**
  * Tests for the GoogleWallet component logic.
@@ -34,8 +35,10 @@ jest.mock('../native/NativeGooglePayButton', () => ({
 jest.mock('../client/useBolt', () => ({
   useBolt: () => ({
     publishableKey: 'pk_test_123',
+    environment: 'production' as const,
     baseUrl: 'https://connect.bolt.com',
     apiUrl: 'https://api.bolt.com',
+    apiHeaders: () => ({ 'X-Publishable-Key': 'pk_test_123' }),
   }),
 }));
 
@@ -197,5 +200,47 @@ describe('GoogleWallet', () => {
         expect(typed).toBe(t);
       }
     });
+  });
+});
+
+describe('fetchGooglePayAPMConfig', () => {
+  let mockFetch: jest.Mock;
+
+  beforeEach(() => {
+    mockFetch = jest.fn();
+    global.fetch = mockFetch;
+  });
+
+  it('sends the provided headers to the APM config endpoint', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockAPMConfig),
+    });
+
+    await fetchGooglePayAPMConfig('https://api.bolt.com', {
+      'X-Publishable-Key': 'pk_test_abc',
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.bolt.com/v1/apm_config/googlepay',
+      expect.objectContaining({
+        method: 'GET',
+        headers: { 'X-Publishable-Key': 'pk_test_abc' },
+      })
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+    });
+
+    await expect(
+      fetchGooglePayAPMConfig('https://api.bolt.com', {
+        'X-Publishable-Key': 'bad_key',
+      })
+    ).rejects.toThrow('Failed to fetch Google Pay config: 401 Unauthorized');
   });
 });
