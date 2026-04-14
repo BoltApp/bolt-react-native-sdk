@@ -3,9 +3,14 @@ import { BoltProvider } from '../client/BoltProvider';
 import { useBolt } from '../client/useBolt';
 import {
   CreditCard,
+  NativeCreditCard,
   useThreeDSecure,
   ThreeDSError,
   threeDSErrorMap,
+} from '../payments';
+import type {
+  NativeCreditCardController,
+  NativeCardFieldStyles,
 } from '../payments';
 
 // Mock react-native-webview
@@ -62,5 +67,24 @@ describe('Payments exports', () => {
   it('should export threeDSErrorMap', () => {
     expect(threeDSErrorMap).toBeDefined();
     expect(threeDSErrorMap.size).toBe(10);
+  });
+
+  it('should export NativeCreditCard namespace', () => {
+    expect(NativeCreditCard).toBeDefined();
+    expect(NativeCreditCard.Component).toBeDefined();
+    expect(NativeCreditCard.useController).toBeDefined();
+    expect(typeof NativeCreditCard.Component).toBe('function');
+    expect(typeof NativeCreditCard.useController).toBe('function');
+  });
+
+  it('should export NativeCreditCardController type', () => {
+    // Type-level test: ensure the type is importable and usable
+    const _controller: NativeCreditCardController | null = null;
+    expect(_controller).toBeNull(); // just verifies the type compiles
+  });
+
+  it('should export NativeCardFieldStyles type', () => {
+    const _styles: NativeCardFieldStyles = { textColor: '#000' };
+    expect(_styles.textColor).toBe('#000');
   });
 });

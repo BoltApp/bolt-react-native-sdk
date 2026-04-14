@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Text,
   View,
@@ -23,6 +23,7 @@ if (devTelemetryConfig.enabled) {
 }
 import {
   CreditCard,
+  NativeCreditCard,
   useThreeDSecure,
   ApplePay,
   GoogleWallet,
@@ -385,14 +386,107 @@ const WalletScreen = () => {
   );
 };
 
+// ── Native Card Input (PCI-safe, no WebView) ────────────────
+// Demonstrates: NativeCreditCard with platform-native text fields.
+// CHD never enters the JavaScript heap.
+
+const NativeCardScreen = () => {
+  const cc = NativeCreditCard.useController();
+  const [tokenResult, setTokenResult] = useState<TokenResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [cardValid, setCardValid] = useState(false);
+  const [fieldError, setFieldError] = useState<string | null>(null);
+
+  useEffect(() => {
+    cc.on('valid', () => {
+      setCardValid(true);
+      setFieldError(null);
+    });
+    cc.on('error', (msg) => setFieldError(msg as string));
+    cc.on('focus', () => setFieldError(null));
+  }, [cc]);
+
+  const handleTokenize = useCallback(async () => {
+    setLoading(true);
+    setTokenResult(null);
+    try {
+      const result = await cc.tokenize();
+      if (result instanceof Error) {
+        Alert.alert('Tokenization Error', result.message);
+        return;
+      }
+      setTokenResult(result);
+      Alert.alert(
+        'Native Tokenization',
+        `Token: ${result.token?.slice(0, 20)}...\n` +
+          `Last4: ${result.last4}\n` +
+          `Network: ${result.network}`
+      );
+    } catch (error) {
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'Failed to tokenize'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [cc]);
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Native Card Input</Text>
+      <Text style={styles.subtitle}>
+        Platform-native fields — no WebView, CHD never in JS
+      </Text>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Credit Card (Native)</Text>
+        <NativeCreditCard.Component
+          controller={cc}
+          showPostalCode={true}
+          style={styles.nativeCardInput}
+        />
+        {cardValid && <Text style={styles.validText}>Card details valid</Text>}
+        {fieldError && <Text style={styles.errorText}>{fieldError}</Text>}
+      </View>
+
+      <TouchableOpacity
+        style={[
+          styles.primaryButton,
+          (loading || !cardValid) && styles.buttonDisabled,
+        ]}
+        onPress={handleTokenize}
+        disabled={loading || !cardValid}
+      >
+        <Text style={styles.primaryButtonText}>
+          {loading ? 'Processing...' : 'Tokenize (Native)'}
+        </Text>
+      </TouchableOpacity>
+
+      {tokenResult && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Token Result</Text>
+          <Text style={styles.mono}>
+            {JSON.stringify(tokenResult, null, 2)}
+          </Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+};
+
 // ── App with Tab Navigation ─────────────────────────────────
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'addCard' | 'wallet'>('addCard');
+  const [activeTab, setActiveTab] = useState<
+    'addCard' | 'nativeCard' | 'wallet'
+  >('nativeCard');
 
   return (
     <BoltProvider client={bolt}>
-      {activeTab === 'addCard' ? <AddCardScreen /> : <WalletScreen />}
+      {activeTab === 'addCard' && <AddCardScreen />}
+      {activeTab === 'nativeCard' && <NativeCardScreen />}
+      {activeTab === 'wallet' && <WalletScreen />}
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'addCard' && styles.tabActive]}
@@ -404,7 +498,20 @@ export default function App() {
               activeTab === 'addCard' && styles.tabTextActive,
             ]}
           >
-            Add Card
+            WebView
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'nativeCard' && styles.tabActive]}
+          onPress={() => setActiveTab('nativeCard')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'nativeCard' && styles.tabTextActive,
+            ]}
+          >
+            Native
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -468,6 +575,9 @@ const styles = StyleSheet.create({
   },
   cardInput: {
     minHeight: 200,
+  },
+  nativeCardInput: {
+    height: 240,
   },
   validText: {
     color: '#16a34a',
