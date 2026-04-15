@@ -24,18 +24,20 @@ export const NativeCreditCardComponent: React.FC<
 > = ({ controller, showPostalCode = false, style }) => {
   const bolt = useBolt();
   const listeners = controller._listenersRef;
+  const lastState = controller._lastStateRef;
 
   const handleValid = useCallback(() => {
+    lastState.current = 'valid';
     (listeners.current.valid as (() => void) | undefined)?.();
-  }, [listeners]);
+  }, [listeners, lastState]);
 
   const handleError = useCallback(
     (event: { nativeEvent: { message: string } }) => {
-      (listeners.current.error as ((e: string) => void) | undefined)?.(
-        event.nativeEvent.message
-      );
+      const message = event.nativeEvent.message;
+      lastState.current = { error: message };
+      (listeners.current.error as ((e: string) => void) | undefined)?.(message);
     },
-    [listeners]
+    [listeners, lastState]
   );
 
   const handleFocus = useCallback(() => {

@@ -69,6 +69,10 @@ export const useCreditCardController = (
   const webViewRef = useRef<WebView | null>(null);
   const dispatcher = useMemo(() => new BoltBridgeDispatcher(webViewRef), []);
   const listenersRef = useRef<Partial<EventListeners>>({});
+  // Tracks the last terminal validation state so late subscribers (e.g. those
+  // registering inside useEffect) don't miss the Valid/Error transition that
+  // fired during mount or autofill. See `on()` below for the replay behavior.
+  const lastStateRef = useRef<'valid' | { error: string } | null>(null);
   const optionsRef = useRef(options);
 
   // Listen for FrameInitialized and field events
@@ -107,13 +111,17 @@ export const useCreditCardController = (
           (listenersRef.current.blur as (() => void) | undefined)?.();
           break;
         case 'Valid':
+          lastStateRef.current = 'valid';
           (listenersRef.current.valid as (() => void) | undefined)?.();
           break;
-        case 'Error':
+        case 'Error': {
+          const message = String(msg.message ?? '');
+          lastStateRef.current = { error: message };
           (listenersRef.current.error as ((e: string) => void) | undefined)?.(
-            String(msg.message ?? '')
+            message
           );
           break;
+        }
       }
     });
 
@@ -122,6 +130,30 @@ export const useCreditCardController = (
 
   const on = useCallback((eventType: EventType, callback: EventCallback) => {
     listenersRef.current[eventType] = callback;
+
+    // Replay the most recent validation state so subscribers that register
+    // after the underlying transition (the common `useEffect` pattern) still
+    // receive the notification. Deferred to a microtask so we never invoke the
+    // callback during React render.
+    const state = lastStateRef.current;
+    if (state === 'valid' && eventType === 'valid') {
+      queueMicrotask(() => {
+        if (listenersRef.current.valid === callback) {
+          (callback as () => void)();
+        }
+      });
+    } else if (
+      state !== null &&
+      typeof state === 'object' &&
+      eventType === 'error'
+    ) {
+      const message = state.error;
+      queueMicrotask(() => {
+        if (listenersRef.current.error === callback) {
+          (callback as (e: string) => void)(message);
+        }
+      });
+    }
   }, []);
 
   const tokenize = useCallback((): Promise<TokenResult | Error> => {

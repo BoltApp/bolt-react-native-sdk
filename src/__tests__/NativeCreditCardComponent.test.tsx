@@ -35,6 +35,7 @@ const makeController = (
     nativeRef: { current: null },
     _listenersRef: { current: {} },
     _stylesRef: { current: undefined },
+    _lastStateRef: { current: null },
     on: jest.fn(),
     tokenize: jest.fn().mockResolvedValue({ token: 'test' }),
     setStyles: jest.fn(),

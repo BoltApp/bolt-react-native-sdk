@@ -27,6 +27,12 @@ export interface NativeCreditCardController {
   /** @internal Styles ref — used by NativeCreditCardComponent for style props. */
   _stylesRef: React.RefObject<NativeCardFieldStyles | undefined>;
   /**
+   * @internal Last terminal validation state — written by
+   * NativeCreditCardComponent when onCardValid/onCardError fire and read by
+   * `on()` to replay state to late subscribers.
+   */
+  _lastStateRef: React.RefObject<'valid' | { error: string } | null>;
+  /**
    * Register an event listener for field events.
    */
   on: (eventType: EventType, callback: EventCallback) => void;
@@ -65,9 +71,37 @@ export const useNativeCreditCardController = (
   const nativeRef = useRef<any>(null);
   const listenersRef = useRef<Partial<EventListeners>>({});
   const stylesRef = useRef<NativeCardFieldStyles | undefined>(_options?.styles);
+  // Tracks the last terminal validation state so late subscribers don't miss
+  // the Valid/Error transition that fired during mount or autofill. Written
+  // by NativeCreditCardComponent's event handlers; read by `on()` below.
+  const lastStateRef = useRef<'valid' | { error: string } | null>(null);
 
   const on = useCallback((eventType: EventType, callback: EventCallback) => {
     listenersRef.current[eventType] = callback;
+
+    // Replay the most recent validation state so subscribers that register
+    // after the underlying transition (the common `useEffect` pattern) still
+    // receive the notification. Deferred to a microtask so we never invoke
+    // the callback during React render.
+    const state = lastStateRef.current;
+    if (state === 'valid' && eventType === 'valid') {
+      queueMicrotask(() => {
+        if (listenersRef.current.valid === callback) {
+          (callback as () => void)();
+        }
+      });
+    } else if (
+      state !== null &&
+      typeof state === 'object' &&
+      eventType === 'error'
+    ) {
+      const message = state.error;
+      queueMicrotask(() => {
+        if (listenersRef.current.error === callback) {
+          (callback as (e: string) => void)(message);
+        }
+      });
+    }
   }, []);
 
   const tokenize = useCallback((): Promise<TokenResult | Error> => {
@@ -131,6 +165,7 @@ export const useNativeCreditCardController = (
       nativeRef,
       _listenersRef: listenersRef,
       _stylesRef: stylesRef,
+      _lastStateRef: lastStateRef,
       on,
       tokenize,
       setStyles,
