@@ -1,9 +1,21 @@
+import { renderHook, act } from '@testing-library/react-hooks';
 import { BoltBridgeDispatcher } from '../bridge/BoltBridgeDispatcher';
 import { parseBoltMessage } from '../bridge/parseBoltMessage';
 import { validationErrorMap } from '../payments/types';
 
 // Mock react-native-webview
 jest.mock('react-native-webview', () => ({}));
+
+jest.mock('../client/useBolt', () => ({
+  useBolt: () => ({
+    publishableKey: 'pk_test_123',
+    baseUrl: 'https://connect.bolt.com',
+    apiUrl: 'https://api-staging.bolt.com',
+    getOnPageStyles: () => undefined,
+  }),
+}));
+
+import { useCreditCardController } from '../payments/useCreditCardController';
 
 /**
  * Tests for the credit card controller's tokenization message flow.
@@ -412,5 +424,124 @@ describe('parseBoltMessage', () => {
       type: 'GetTokenReply',
       token: { token: 'tok_double' },
     });
+  });
+});
+
+/**
+ * Regression coverage for the late-subscriber bug: consumers commonly register
+ * `cc.on('valid', ...)` inside a useEffect, which runs *after* the iframe may
+ * already have emitted `Valid`. Before the replay fix the callback was never
+ * invoked in that window. These tests lock in the replay behavior.
+ */
+describe('useCreditCardController late-subscriber replay', () => {
+  const flushMicrotasks = () => new Promise((r) => setImmediate(r));
+
+  const sendBoltMessage = (
+    dispatcher: BoltBridgeDispatcher,
+    payload: Record<string, unknown>
+  ) => {
+    dispatcher.handleMessage({
+      nativeEvent: {
+        data: JSON.stringify({
+          __boltBridge: true,
+          direction: 'outbound',
+          type: 'postMessage',
+          data: JSON.stringify(payload),
+        }),
+      },
+    });
+  };
+
+  it('should replay Valid to a listener registered after the event fired', async () => {
+    const { result } = renderHook(() => useCreditCardController());
+    const dispatcher = result.current.dispatcher;
+
+    // Simulate the iframe transitioning to valid *before* the consumer's
+    // useEffect has run its on() call.
+    act(() => {
+      sendBoltMessage(dispatcher, { type: 'Valid' });
+    });
+
+    const validCb = jest.fn();
+    act(() => {
+      result.current.on('valid', validCb);
+    });
+
+    await flushMicrotasks();
+    expect(validCb).toHaveBeenCalledTimes(1);
+  });
+
+  it('should replay Error to a listener registered after the event fired', async () => {
+    const { result } = renderHook(() => useCreditCardController());
+    const dispatcher = result.current.dispatcher;
+
+    act(() => {
+      sendBoltMessage(dispatcher, {
+        type: 'Error',
+        message: 'Card number is invalid',
+      });
+    });
+
+    const errorCb = jest.fn();
+    act(() => {
+      result.current.on('error', errorCb);
+    });
+
+    await flushMicrotasks();
+    expect(errorCb).toHaveBeenCalledTimes(1);
+    expect(errorCb).toHaveBeenCalledWith('Card number is invalid');
+  });
+
+  it('should not replay when no Valid/Error has occurred yet', async () => {
+    const { result } = renderHook(() => useCreditCardController());
+
+    const validCb = jest.fn();
+    const errorCb = jest.fn();
+    act(() => {
+      result.current.on('valid', validCb);
+      result.current.on('error', errorCb);
+    });
+
+    await flushMicrotasks();
+    expect(validCb).not.toHaveBeenCalled();
+    expect(errorCb).not.toHaveBeenCalled();
+  });
+
+  it('should still fire the callback live on subsequent Valid events', async () => {
+    const { result } = renderHook(() => useCreditCardController());
+    const dispatcher = result.current.dispatcher;
+
+    const validCb = jest.fn();
+    act(() => {
+      result.current.on('valid', validCb);
+    });
+
+    act(() => {
+      sendBoltMessage(dispatcher, { type: 'Valid' });
+    });
+
+    await flushMicrotasks();
+    expect(validCb).toHaveBeenCalledTimes(1);
+  });
+
+  it('should not replay stale state to a listener overwritten before the microtask runs', async () => {
+    const { result } = renderHook(() => useCreditCardController());
+    const dispatcher = result.current.dispatcher;
+
+    act(() => {
+      sendBoltMessage(dispatcher, { type: 'Valid' });
+    });
+
+    const firstCb = jest.fn();
+    const secondCb = jest.fn();
+    act(() => {
+      result.current.on('valid', firstCb);
+      // Synchronous overwrite — replay scheduled for firstCb must not fire.
+      result.current.on('valid', secondCb);
+    });
+
+    await flushMicrotasks();
+    expect(firstCb).not.toHaveBeenCalled();
+    expect(secondCb).toHaveBeenCalledTimes(1);
   });
 });

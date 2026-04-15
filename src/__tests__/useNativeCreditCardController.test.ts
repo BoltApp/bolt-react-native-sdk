@@ -204,6 +204,61 @@ describe('useNativeCreditCardController', () => {
   });
 });
 
+/**
+ * Regression coverage for the late-subscriber bug. On the native path, the
+ * NativeCreditCardComponent is what writes `_lastStateRef` when onCardValid/
+ * onCardError fire; here we simulate that by writing to the ref directly.
+ */
+describe('useNativeCreditCardController late-subscriber replay', () => {
+  const flushMicrotasks = () => new Promise((r) => setImmediate(r));
+
+  it('should replay Valid to a listener registered after onCardValid fired', async () => {
+    const { result } = renderHook(() => useNativeCreditCardController());
+
+    // Component-side effect: onCardValid fired before consumer subscribed.
+    act(() => {
+      result.current._lastStateRef.current = 'valid';
+    });
+
+    const validCb = jest.fn();
+    act(() => {
+      result.current.on('valid', validCb);
+    });
+
+    await flushMicrotasks();
+    expect(validCb).toHaveBeenCalledTimes(1);
+  });
+
+  it('should replay Error to a listener registered after onCardError fired', async () => {
+    const { result } = renderHook(() => useNativeCreditCardController());
+
+    act(() => {
+      result.current._lastStateRef.current = { error: 'CVV is invalid' };
+    });
+
+    const errorCb = jest.fn();
+    act(() => {
+      result.current.on('error', errorCb);
+    });
+
+    await flushMicrotasks();
+    expect(errorCb).toHaveBeenCalledTimes(1);
+    expect(errorCb).toHaveBeenCalledWith('CVV is invalid');
+  });
+
+  it('should not replay when no state has been recorded yet', async () => {
+    const { result } = renderHook(() => useNativeCreditCardController());
+
+    const validCb = jest.fn();
+    act(() => {
+      result.current.on('valid', validCb);
+    });
+
+    await flushMicrotasks();
+    expect(validCb).not.toHaveBeenCalled();
+  });
+});
+
 describe('useNativeCreditCardController — null native module', () => {
   it('should return Error when native module is null', async () => {
     // Temporarily override the mock to return null
