@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.7.4...v0.8.0) (2026-04-15)
+
+### Features
+
+* add native PCI-compliant credit card input (iOS + Android) ([#51](https://github.com/BoltApp/bolt-react-native-sdk/issues/51)) ([ae9c590](https://github.com/BoltApp/bolt-react-native-sdk/commit/ae9c590255f559c6b7e2ba16aee90804a3957d8d))
+
 ## [0.7.4](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.7.3...v0.7.4) (2026-04-07)
 
 ## [0.7.3](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.7.2...v0.7.3) (2026-04-07)
