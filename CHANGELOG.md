@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.1](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.8.0...v0.8.1) (2026-04-15)
+
+### Bug Fixes
+
+* **credit-card:** replay last validation state to late on() subscribers ([#52](https://github.com/BoltApp/bolt-react-native-sdk/issues/52)) ([9713d94](https://github.com/BoltApp/bolt-react-native-sdk/commit/9713d9427de41ee5da59d5357ab62ae2f3d7df9e))
+
 ## [0.8.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.7.4...v0.8.0) (2026-04-15)
 
 ### Features
