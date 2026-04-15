@@ -6,6 +6,8 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
 import com.facebook.react.uimanager.ViewManager
+import com.boltreactnativesdk.creditcardfield.BoltCardFieldManager
+import com.boltreactnativesdk.creditcardfield.BoltCardFieldModule
 
 class BoltReactNativeSdkPackage : BaseReactPackage() {
   override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? {
@@ -13,6 +15,7 @@ class BoltReactNativeSdkPackage : BaseReactPackage() {
       BoltReactNativeSdkModule.NAME -> BoltReactNativeSdkModule(reactContext)
       GooglePayModule.NAME -> GooglePayModule(reactContext)
       NetworkingModule.NAME -> NetworkingModule(reactContext)
+      BoltCardFieldModule.NAME -> BoltCardFieldModule(reactContext)
       else -> null
     }
   }
@@ -42,6 +45,14 @@ class BoltReactNativeSdkPackage : BaseReactPackage() {
         needsEagerInit = false,
         isCxxModule = false,
         isTurboModule = false
+      ),
+      BoltCardFieldModule.NAME to ReactModuleInfo(
+        name = BoltCardFieldModule.NAME,
+        className = BoltCardFieldModule.NAME,
+        canOverrideExistingModule = false,
+        needsEagerInit = false,
+        isCxxModule = false,
+        isTurboModule = false
       )
     )
   }
@@ -49,6 +60,6 @@ class BoltReactNativeSdkPackage : BaseReactPackage() {
   override fun createViewManagers(
     reactContext: ReactApplicationContext
   ): List<ViewManager<*, *>> {
-    return listOf(GooglePayButtonViewManager())
+    return listOf(GooglePayButtonViewManager(), BoltCardFieldManager())
   }
 }

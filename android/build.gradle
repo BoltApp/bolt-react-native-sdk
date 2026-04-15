@@ -46,6 +46,10 @@ android {
     buildConfig true
   }
 
+  defaultConfig {
+    consumerProguardFiles 'proguard-rules.pro'
+  }
+
   buildTypes {
     release {
       minifyEnabled false

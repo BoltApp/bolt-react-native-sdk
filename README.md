@@ -8,7 +8,8 @@ Bolt React Native SDK for payments. Provides Credit Card tokenization, 3D Secure
 
 ## Architecture
 
-- **Credit Card & 3DS** — WebView-based, loading secure pages from `connect.bolt.com`. Card data never touches your app (PCI compliant).
+- **Credit Card (WebView)** — WebView-based, loading secure pages from `connect.bolt.com`. Card data never touches your app (PCI SAQ A compliant).
+- **Credit Card (Native)** — Platform-native text fields (`UITextField` on iOS, `EditText` on Android). Card data stays in native memory, never enters the JS heap. Requires Bolt PCI SSS certification for SAQ A — see [Native Credit Card (Beta)](#7-native-credit-card-beta) below.
 - **Apple Pay & Google Pay** — Native Fabric view components for buttons (`PKPaymentButton` on iOS, `PayButton` on Android) with TurboModules for the payment sheet.
 
 ## Installation
@@ -269,6 +270,101 @@ cc.setStyles({
 });
 ```
 
+### 7. Native Credit Card (Beta)
+
+> **Note:** The native card input is in beta. Card data is kept in native memory and never enters the JS heap. PCI SSS certification is in progress — contact your Bolt representative for the latest compliance guidance.
+
+The `NativeCreditCard` component uses platform-native text fields instead of a WebView. Benefits include faster rendering (no WebView cold-start), native autofill, iOS 17+ card camera scanner support, and built-in security controls (screen capture prevention, accessibility protection, memory zeroing).
+
+```typescript
+import { NativeCreditCard } from '@boltpay/react-native/payments';
+
+function CheckoutScreen() {
+  const cc = NativeCreditCard.useController();
+
+  cc.on('valid', () => setCanSubmit(true));
+  cc.on('error', (msg) => setFieldError(msg));
+
+  const handlePayment = async () => {
+    const result = await cc.tokenize();
+    if (result instanceof Error) {
+      console.error(result.message);
+      return;
+    }
+    // result: { token?, last4?, bin?, network?, expiration?, postal_code? }
+  };
+
+  return (
+    <>
+      <NativeCreditCard.Component
+        controller={cc}
+        showPostalCode={true}
+      />
+      <Button onPress={handlePayment} title="Pay" />
+    </>
+  );
+}
+```
+
+The `NativeCreditCard` API mirrors `CreditCard` — same `useController()` / `Component` / `on()` / `tokenize()` pattern. The two implementations coexist; merchants opt in to native by importing `NativeCreditCard` instead of `CreditCard`.
+
+#### Styling
+
+Native fields use `NativeCardFieldStyles` instead of CSS custom properties:
+
+```typescript
+cc.setStyles({
+  textColor: '#333333',
+  fontSize: 16,
+  placeholderColor: '#9ca3af',
+  borderColor: '#d1d5db',
+  borderRadius: 10,
+  backgroundColor: '#fafafa',
+});
+```
+
+Or pass initial styles via controller options:
+
+```typescript
+const cc = NativeCreditCard.useController({
+  styles: { textColor: '#333', borderRadius: 8 },
+});
+```
+
+#### Migrating from WebView to Native
+
+The migration is a one-line import change. The controller API (`on()`, `tokenize()`) and `TokenResult` shape are identical.
+
+```diff
+- import { CreditCard } from '@boltpay/react-native/payments';
++ import { NativeCreditCard } from '@boltpay/react-native/payments';
+
+- const cc = CreditCard.useController({
+-   styles: { '--bolt-input-backgroundColor': '#fafafa' },
+-   showBillingZIPField: true,
+- });
++ const cc = NativeCreditCard.useController();
+
+- <CreditCard.Component controller={cc} style={styles.cardInput} />
++ <NativeCreditCard.Component controller={cc} showPostalCode={true} style={styles.cardInput} />
+```
+
+**What stays the same:**
+
+- `cc.on('valid' | 'error' | 'focus' | 'blur', callback)` — identical API
+- `cc.tokenize()` — returns `Promise<TokenResult | Error>`, same shape
+- `TokenResult` — `{ token?, last4?, bin?, network?, expiration?, postal_code? }`
+
+**What changes:**
+
+|                    | WebView (`CreditCard`)                               | Native (`NativeCreditCard`)                             |
+| ------------------ | ---------------------------------------------------- | ------------------------------------------------------- |
+| Import             | `CreditCard`                                         | `NativeCreditCard`                                      |
+| Postal code prop   | `showBillingZIPField` (on controller options)        | `showPostalCode` (on Component)                         |
+| Styling            | CSS custom properties (`--bolt-*`) via `setStyles()` | `NativeCardFieldStyles` (`textColor`, `fontSize`, etc.) |
+| WebView dependency | Requires `react-native-webview`                      | No WebView needed                                       |
+| PCI compliance     | SAQ A (production-ready)                             | SAQ A pending PCI SSS certification (beta)              |
+
 ## API Reference
 
 ### Root (`@boltpay/react-native`)
@@ -282,13 +378,15 @@ cc.setStyles({
 
 ### Payments (`@boltpay/react-native/payments`)
 
-| Export                               | Description                                                               |
-| ------------------------------------ | ------------------------------------------------------------------------- |
-| `CreditCard.Component`               | WebView-based credit card input                                           |
-| `CreditCard.useController(options?)` | Returns a controller with `tokenize()`, `on()`, and `setStyles()`         |
-| `useThreeDSecure()`                  | Hook returning `{ Component, fetchReferenceID(), challengeWithConfig() }` |
-| `ApplePay`                           | Native `PKPaymentButton` (iOS only, renders nothing on Android)           |
-| `GoogleWallet`                       | Native Google Pay `PayButton` (Android only, renders nothing on iOS)      |
+| Export                                     | Description                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------- |
+| `CreditCard.Component`                     | WebView-based credit card input (PCI SAQ A)                               |
+| `CreditCard.useController(options?)`       | Returns a controller with `tokenize()`, `on()`, and `setStyles()`         |
+| `NativeCreditCard.Component`               | Native platform credit card input (Beta — PCI SSS pending)                |
+| `NativeCreditCard.useController(options?)` | Returns a controller with `tokenize()`, `on()`, and `setStyles()`         |
+| `useThreeDSecure()`                        | Hook returning `{ Component, fetchReferenceID(), challengeWithConfig() }` |
+| `ApplePay`                                 | Native `PKPaymentButton` (iOS only, renders nothing on Android)           |
+| `GoogleWallet`                             | Native Google Pay `PayButton` (Android only, renders nothing on iOS)      |
 
 ### Credit Card Controller
 
@@ -313,15 +411,15 @@ cc.setStyles({
 
 ### GoogleWallet Props
 
-| Prop           | Type                        | Default   | Description                                                                                           |
-| -------------- | --------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| Prop           | Type                        | Default   | Description                                                                                                       |
+| -------------- | --------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------- |
 | `config`       | `GooglePayConfig`           | required  | Presentation options: currency, amount, label, billing address format. Merchant config is auto-fetched from Bolt. |
-| `onComplete`   | `(GooglePayResult) => void` | required  | Called with token, bin, expiration, and billing address on success                                    |
-| `onError`      | `(Error) => void`           | —         | Called on payment failure or cancellation                                                             |
-| `buttonType`   | `GooglePayButtonType`       | `'plain'` | Maps to Google Pay `ButtonConstants.ButtonType`. Button text is rendered natively and auto-localized. |
-| `buttonTheme`  | `GooglePayButtonTheme`      | `'dark'`  | Button color theme: `'dark'` or `'light'`. Maps to `ButtonConstants.ButtonTheme`.                     |
-| `borderRadius` | `number`                    | —         | Corner radius in dp applied to the Google Pay button                                                  |
-| `style`        | `ViewStyle`                 | —         | Container style overrides (height, margin, etc.)                                                      |
+| `onComplete`   | `(GooglePayResult) => void` | required  | Called with token, bin, expiration, and billing address on success                                                |
+| `onError`      | `(Error) => void`           | —         | Called on payment failure or cancellation                                                                         |
+| `buttonType`   | `GooglePayButtonType`       | `'plain'` | Maps to Google Pay `ButtonConstants.ButtonType`. Button text is rendered natively and auto-localized.             |
+| `buttonTheme`  | `GooglePayButtonTheme`      | `'dark'`  | Button color theme: `'dark'` or `'light'`. Maps to `ButtonConstants.ButtonTheme`.                                 |
+| `borderRadius` | `number`                    | —         | Corner radius in dp applied to the Google Pay button                                                              |
+| `style`        | `ViewStyle`                 | —         | Container style overrides (height, margin, etc.)                                                                  |
 
 ### 3D Secure
 
@@ -339,6 +437,7 @@ cc.setStyles({
 - `ThreeDSError` — Error subclass with numeric `code` (1001–1010)
 - `CreditCardId` — `{ id: string, expiration: string }` (from Bolt's Add Card API)
 - `CreditCardInfo` — `CreditCardId | TokenResult` (input for `fetchReferenceID`)
+- `NativeCardFieldStyles` — `{ textColor?, fontSize?, placeholderColor?, borderColor?, borderWidth?, borderRadius?, backgroundColor?, fontFamily? }` (for `NativeCreditCard`)
 - `EventType` — `'error' | 'valid' | 'blur' | 'focus'`
 - `ApplePayResult` — `{ token, bin?, expiration?, billingContact?, boltReference? }`
 - `ApplePayButtonType` — Apple-approved button label variants (`'plain'`, `'buy'`, `'checkout'`, `'book'`, `'subscribe'`, `'donate'`, `'order'`, `'setUp'`, `'inStore'`, `'reload'`, `'addMoney'`, `'topUp'`, `'rent'`, `'support'`, `'contribute'`, `'tip'`)
