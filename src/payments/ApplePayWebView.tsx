@@ -170,7 +170,13 @@ export const ApplePayWebView = ({
           }
 
           if (errorCode === ERROR_CANCELLED) {
-            // Cancellation is not an error — silently ignore
+            const cancelSpan = startSpan('bolt.apple_pay.webview_cancelled', {
+              [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+              [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
+              [BoltAttributes.PAYMENT_CANCELLED]: true,
+            });
+            cancelSpan.setStatus({ code: SpanStatusCode.OK });
+            cancelSpan.end();
             return;
           }
 
