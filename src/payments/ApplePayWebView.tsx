@@ -197,6 +197,13 @@ export const ApplePayWebView = ({
         if (errorCode === ERROR_CANCELLED) {
           // User dismissed the Apple Pay sheet. Not a caller-facing error;
           // the iframe resets the button state on its own.
+          const cancelSpan = startSpan('bolt.apple_pay.webview_cancelled', {
+            [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+            [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
+            [BoltAttributes.PAYMENT_CANCELLED]: true,
+          });
+          cancelSpan.setStatus({ code: SpanStatusCode.OK });
+          cancelSpan.end();
           return;
         }
 

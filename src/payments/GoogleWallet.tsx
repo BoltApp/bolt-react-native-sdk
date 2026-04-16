@@ -100,6 +100,13 @@ export const GoogleWallet = ({
       return;
     }
 
+    const buttonSpan = startSpan('bolt.google_pay.button_pressed', {
+      [BoltAttributes.PAYMENT_METHOD]: 'google_pay',
+      [BoltAttributes.PAYMENT_OPERATION]: 'button_pressed',
+    });
+    buttonSpan.setStatus({ code: SpanStatusCode.OK });
+    buttonSpan.end();
+
     const span = startSpan('bolt.google_pay.request_payment', {
       [BoltAttributes.PAYMENT_METHOD]: 'google_pay',
       [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
@@ -139,11 +146,31 @@ export const GoogleWallet = ({
         email: raw.email,
         billingAddress: raw.billingAddress,
       };
+
+      const tokenizeSpan = startSpan('bolt.google_pay.tokenize_success', {
+        [BoltAttributes.PAYMENT_METHOD]: 'google_pay',
+        [BoltAttributes.PAYMENT_OPERATION]: 'tokenize',
+      });
+      tokenizeSpan.setStatus({ code: SpanStatusCode.OK });
+      tokenizeSpan.end();
+
       span.setStatus({ code: SpanStatusCode.OK });
       span.end();
     } catch (err) {
       const error =
         err instanceof Error ? err : new Error('Google Pay payment failed');
+
+      const tokenizeSpan = startSpan('bolt.google_pay.tokenize_failure', {
+        [BoltAttributes.PAYMENT_METHOD]: 'google_pay',
+        [BoltAttributes.PAYMENT_OPERATION]: 'tokenize',
+        [BoltAttributes.ERROR_MESSAGE]: error.message,
+      });
+      tokenizeSpan.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: error.message,
+      });
+      tokenizeSpan.end();
+
       span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
       span.recordException(error);
       span.end();
