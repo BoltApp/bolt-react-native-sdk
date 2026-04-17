@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.2](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.8.1...v0.8.2) (2026-04-17)
+
+### Bug Fixes
+
+* replace NativeComponentRegistry.get with codegenNativeComponent for credit card field ([#61](https://github.com/BoltApp/bolt-react-native-sdk/issues/61)) ([bf9dadd](https://github.com/BoltApp/bolt-react-native-sdk/commit/bf9daddf17c5591608ba9bec03dbb34209bd8b5c))
+
 ## [0.8.1](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.8.0...v0.8.1) (2026-04-15)
 
 ### Bug Fixes
