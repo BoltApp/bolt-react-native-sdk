@@ -22,6 +22,7 @@ const API_URLS: Record<string, string> = {
 
 export class Bolt {
   public readonly publishableKey: string;
+  public readonly environment: 'production' | 'sandbox' | 'staging';
   public readonly baseUrl: string;
   public readonly apiUrl: string;
   public readonly language: string;
@@ -34,6 +35,7 @@ export class Bolt {
 
     const env = config.environment ?? 'production';
     this.publishableKey = config.publishableKey;
+    this.environment = env;
     this.baseUrl = ENVIRONMENT_URLS[env] ?? ENVIRONMENT_URLS.production!;
     this.apiUrl = API_URLS[env] ?? API_URLS.production!;
     this.language = config.language ?? 'en';
@@ -51,5 +53,15 @@ export class Bolt {
 
   getOnPageStyles(): Styles | undefined {
     return this.onPageStyles;
+  }
+
+  /**
+   * Returns the standard HTTP headers required for Bolt REST API calls.
+   * Centralised here so every API caller uses a consistent header name.
+   */
+  apiHeaders(): Record<string, string> {
+    return {
+      'X-Publishable-Key': this.publishableKey,
+    };
   }
 }

@@ -73,6 +73,11 @@ describe('Bolt', () => {
     bolt.configureOnPageStyles(newStyles);
     expect(bolt.getOnPageStyles()).toEqual(newStyles);
   });
+
+  it('should return X-Publishable-Key header from apiHeaders()', () => {
+    const bolt = new Bolt({ publishableKey: 'pk_test_abc' });
+    expect(bolt.apiHeaders()).toEqual({ 'X-Publishable-Key': 'pk_test_abc' });
+  });
 });
 
 describe('CreditCard', () => {
