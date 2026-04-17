@@ -76,7 +76,9 @@ export const initTelemetry = (config: BoltConfig): void => {
     [ATTR_SERVICE_NAME]: INSTRUMENTATION_NAME,
     [ATTR_SERVICE_VERSION]: SDK_VERSION,
     [BoltAttributes.ENVIRONMENT]: config.environment ?? 'production',
-    [BoltAttributes.PUBLISHABLE_KEY]: config.publishableKey.slice(0, 8) + '...',
+    [BoltAttributes.PUBLISHABLE_KEY]:
+      config.publishableKey.slice(0, 12) + '...',
+    [BoltAttributes.PLATFORM]: 'react-native',
     [ATTR_OS_NAME]: Platform.OS,
     [ATTR_OS_VERSION]: String(Platform.Version),
   });

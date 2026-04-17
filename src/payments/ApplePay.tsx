@@ -83,6 +83,13 @@ export const ApplePay = ({
       return;
     }
 
+    const buttonSpan = startSpan('bolt.apple_pay.button_pressed', {
+      [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+      [BoltAttributes.PAYMENT_OPERATION]: 'button_pressed',
+    });
+    buttonSpan.setStatus({ code: SpanStatusCode.OK });
+    buttonSpan.end();
+
     const span = startSpan('bolt.apple_pay.request_payment', {
       [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
       [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
@@ -95,12 +102,46 @@ export const ApplePay = ({
         bolt.baseUrl
       );
       const result: ApplePayResult = JSON.parse(resultJson);
+
+      const tokenizeSpan = startSpan('bolt.apple_pay.tokenize_success', {
+        [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+        [BoltAttributes.PAYMENT_OPERATION]: 'tokenize',
+      });
+      tokenizeSpan.setStatus({ code: SpanStatusCode.OK });
+      tokenizeSpan.end();
+
       span.setStatus({ code: SpanStatusCode.OK });
       span.end();
       onComplete(result);
     } catch (err) {
       const error =
         err instanceof Error ? err : new Error('Apple Pay payment failed');
+      const nativeCode = (err as { code?: string }).code;
+
+      if (nativeCode === 'CANCELLED') {
+        const cancelSpan = startSpan('bolt.apple_pay.cancelled', {
+          [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+          [BoltAttributes.PAYMENT_CANCELLED]: true,
+        });
+        cancelSpan.setStatus({ code: SpanStatusCode.OK });
+        cancelSpan.end();
+        span.setStatus({ code: SpanStatusCode.OK, message: 'user_cancelled' });
+        span.end();
+        onError?.(error);
+        return;
+      }
+
+      const tokenizeSpan = startSpan('bolt.apple_pay.tokenize_failure', {
+        [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+        [BoltAttributes.PAYMENT_OPERATION]: 'tokenize',
+        [BoltAttributes.ERROR_MESSAGE]: error.message,
+      });
+      tokenizeSpan.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: error.message,
+      });
+      tokenizeSpan.end();
+
       span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
       span.recordException(error);
       span.end();

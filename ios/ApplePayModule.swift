@@ -16,6 +16,12 @@ class ApplePayModule: NSObject {
   private var pendingReject: ((String, String, NSError) -> Void)?
   private var publishableKey: String = ""
   private var baseUrl: String = ""
+  /// Tracks whether the promise has been settled (resolved or rejected) so
+  /// `paymentAuthorizationControllerDidFinish` can detect user cancellation.
+  /// All promise settlements are dispatched to the main queue so that
+  /// `promiseSettled` is only ever read/written from one thread, avoiding
+  /// races between URLSession background callbacks and PassKit delegate calls.
+  private var promiseSettled: Bool = false
 
   @objc
   static func moduleName() -> String {
@@ -44,10 +50,11 @@ class ApplePayModule: NSObject {
     self.baseUrl = baseUrl
     self.pendingResolve = resolve
     self.pendingReject = reject
+    self.promiseSettled = false
 
     guard let configData = configJson.data(using: .utf8),
           let config = try? JSONSerialization.jsonObject(with: configData) as? [String: Any] else {
-      reject("INVALID_CONFIG", "Failed to parse Apple Pay config", NSError(domain: "BoltApplePay", code: 1))
+      settleReject("INVALID_CONFIG", "Failed to parse Apple Pay config", NSError(domain: "BoltApplePay", code: 1))
       return
     }
 
@@ -72,6 +79,22 @@ class ApplePayModule: NSObject {
       let controller = PKPaymentAuthorizationController(paymentRequest: request)
       controller.delegate = self
       controller.present()
+    }
+  }
+
+  private func settleResolve(_ value: Any) {
+    DispatchQueue.main.async {
+      guard !self.promiseSettled else { return }
+      self.promiseSettled = true
+      self.pendingResolve?(value)
+    }
+  }
+
+  private func settleReject(_ code: String, _ message: String, _ error: NSError) {
+    DispatchQueue.main.async {
+      guard !self.promiseSettled else { return }
+      self.promiseSettled = true
+      self.pendingReject?(code, message, error)
     }
   }
 
@@ -138,13 +161,6 @@ extension ApplePayModule: PKPaymentAuthorizationControllerDelegate {
 
   func paymentAuthorizationController(
     _ controller: PKPaymentAuthorizationController,
-    didRequestMerchantSessionUpdate handler: @escaping (PKPaymentRequestMerchantSessionUpdate) -> Void
-  ) {
-    // This is called for merchant validation
-  }
-
-  func paymentAuthorizationController(
-    _ controller: PKPaymentAuthorizationController,
     didAuthorizePayment payment: PKPayment,
     handler completion: @escaping (PKPaymentAuthorizationResult) -> Void
   ) {
@@ -180,12 +196,14 @@ extension ApplePayModule: PKPaymentAuthorizationControllerDelegate {
 
         if let jsonData = try? JSONSerialization.data(withJSONObject: response),
            let jsonString = String(data: jsonData, encoding: .utf8) {
-          self.pendingResolve?(jsonString)
+          self.settleResolve(jsonString)
+          completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
+        } else {
+          self.settleReject("SERIALIZE_FAILED", "Failed to serialize Apple Pay result", NSError(domain: "BoltApplePay", code: 5))
+          completion(PKPaymentAuthorizationResult(status: .failure, errors: nil))
         }
-
-        completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
       } else {
-        self.pendingReject?("TOKENIZE_FAILED", "Failed to tokenize Apple Pay payment", NSError(domain: "BoltApplePay", code: 3))
+        self.settleReject("TOKENIZE_FAILED", "Failed to tokenize Apple Pay payment", NSError(domain: "BoltApplePay", code: 3))
         completion(PKPaymentAuthorizationResult(status: .failure, errors: nil))
       }
     }
@@ -193,7 +211,15 @@ extension ApplePayModule: PKPaymentAuthorizationControllerDelegate {
 
   func paymentAuthorizationControllerDidFinish(_ controller: PKPaymentAuthorizationController) {
     DispatchQueue.main.async {
-      controller.dismiss()
+      controller.dismiss {
+        // If the promise was never settled, the user dismissed the sheet
+        // before authorizing — this is a cancellation.
+        self.settleReject(
+          "CANCELLED",
+          "User cancelled Apple Pay",
+          NSError(domain: "BoltApplePay", code: 4)
+        )
+      }
     }
   }
 }
