@@ -423,6 +423,9 @@ const NativeCardScreen = () => {
           `Network: ${result.network}`
       );
     } catch (error) {
+      if (__DEV__) {
+        console.log('Tokenization error', error);
+      }
       Alert.alert(
         'Error',
         error instanceof Error ? error.message : 'Failed to tokenize'
@@ -681,6 +684,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
     backgroundColor: '#ffffff',
+    // Android edge-to-edge (SDK 35+) draws content under the gesture / nav bar.
+    paddingBottom: Platform.OS === 'android' ? 36 : 0,
   },
   tab: {
     flex: 1,

@@ -11,14 +11,14 @@ export interface Spec extends TurboModule {
    * Present the Apple Pay payment sheet.
    *
    * @param config JSON-encoded ApplePayConfig
-   * @param publishableKey Bolt publishable key for merchant validation
-   * @param baseUrl Bolt API base URL
-   * @returns JSON-encoded result with token, bin, expiration, billingContact, boltReference
+   * @param tokenizerUrl Primary Bolt tokenizer URL (e.g. https://production.bolttk.com)
+   * @param tokenizerFallbackUrl Fallback tokenizer URL (e.g. https://tokenizer.bolt.com)
+   * @returns JSON-encoded result with token, billingContact, boltReference
    */
   requestPayment(
     config: string,
-    publishableKey: string,
-    baseUrl: string
+    tokenizerUrl: string,
+    tokenizerFallbackUrl: string
   ): Promise<string>;
 }
 

@@ -11,14 +11,14 @@ export interface Spec extends TurboModule {
    * Present the Google Pay payment sheet.
    *
    * @param config JSON-encoded GooglePayConfig
-   * @param publishableKey Bolt publishable key
-   * @param baseUrl Bolt API base URL
-   * @returns JSON-encoded result with token, bin, expiration, billingAddress
+   * @param tokenizerUrl Primary Bolt tokenizer URL (e.g. https://production.bolttk.com)
+   * @param tokenizerFallbackUrl Fallback tokenizer URL (e.g. https://tokenizer.bolt.com)
+   * @returns JSON-encoded result with token, email, billingAddress, boltReference
    */
   requestPayment(
     config: string,
-    publishableKey: string,
-    baseUrl: string
+    tokenizerUrl: string,
+    tokenizerFallbackUrl: string
   ): Promise<string>;
 }
 
