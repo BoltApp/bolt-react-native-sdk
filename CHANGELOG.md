@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.4](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.8.3...v0.8.4) (2026-04-20)
+
+### Bug Fixes
+
+* **wallet:** unwrap bridge envelope for Apple Pay WebView result ([#63](https://github.com/BoltApp/bolt-react-native-sdk/issues/63)) ([553ae10](https://github.com/BoltApp/bolt-react-native-sdk/commit/553ae10a719d932ddef94736d3e899fe7d6cab96))
+
 ## [0.8.3](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.8.2...v0.8.3) (2026-04-20)
 
 ### Bug Fixes
