@@ -135,10 +135,17 @@ const AddCardScreen = () => {
 
   // Apple Pay: capture token + billing contact (including email for Bolt account creation)
   const handleApplePayComplete = useCallback((result: ApplePayResult) => {
+    const name = [
+      result.billingContact?.givenName,
+      result.billingContact?.familyName,
+    ]
+      .filter(Boolean)
+      .join(' ');
     const msg =
       `Token: ${result.token.slice(0, 20)}...\n` +
       `Email: ${result.billingContact?.emailAddress ?? 'N/A'}\n` +
-      `Name: ${result.billingContact?.givenName ?? ''} ${result.billingContact?.familyName ?? ''}`;
+      `Name: ${name || 'N/A'}\n` +
+      `Bolt Ref: ${result.boltReference ?? 'N/A'}`;
     setWalletStatus({ type: 'success', message: msg });
     Alert.alert('Apple Pay Card Added', msg);
   }, []);
