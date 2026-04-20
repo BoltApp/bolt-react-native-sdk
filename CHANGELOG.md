@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.3](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.8.2...v0.8.3) (2026-04-20)
+
+### Bug Fixes
+
+* **wallet:** route Apple/Google Pay tokenize to tokenizer service ([#62](https://github.com/BoltApp/bolt-react-native-sdk/issues/62)) ([bf2d22c](https://github.com/BoltApp/bolt-react-native-sdk/commit/bf2d22c331c528794b3b95b764f80f361d3085e0))
+
 ## [0.8.2](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.8.1...v0.8.2) (2026-04-17)
 
 ### Bug Fixes
