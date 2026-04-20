@@ -86,20 +86,20 @@ describe('ApplePay', () => {
   });
 
   describe('requestPayment', () => {
-    it('should pass serialized config, publishableKey, and baseUrl', async () => {
+    it('should pass serialized config and tokenizer URLs', async () => {
       const resultJson = JSON.stringify({ token: 'tok_apple_1' });
       mockRequestPayment.mockResolvedValue(resultJson);
 
       await mockRequestPayment(
         JSON.stringify(baseConfig),
-        'pk_test_123',
-        'https://connect.bolt.com'
+        'https://production.bolttk.com',
+        'https://tokenizer.bolt.com'
       );
 
       expect(mockRequestPayment).toHaveBeenCalledWith(
         JSON.stringify(baseConfig),
-        'pk_test_123',
-        'https://connect.bolt.com'
+        'https://production.bolttk.com',
+        'https://tokenizer.bolt.com'
       );
     });
 
@@ -116,8 +116,8 @@ describe('ApplePay', () => {
 
       const resultJson = await mockRequestPayment(
         JSON.stringify(baseConfig),
-        'pk_test_123',
-        'https://connect.bolt.com'
+        'https://production.bolttk.com',
+        'https://tokenizer.bolt.com'
       );
       const result = JSON.parse(resultJson);
 
@@ -133,8 +133,8 @@ describe('ApplePay', () => {
       await expect(
         mockRequestPayment(
           JSON.stringify(baseConfig),
-          'pk_test_123',
-          'https://connect.bolt.com'
+          'https://production.bolttk.com',
+          'https://tokenizer.bolt.com'
         )
       ).rejects.toThrow('User cancelled');
     });

@@ -107,8 +107,8 @@ export const GoogleWallet = ({
       );
       const resultJson = await NativeGooglePay.requestPayment(
         JSON.stringify(nativeConfig),
-        bolt.publishableKey,
-        bolt.baseUrl
+        bolt.tokenizerUrl,
+        bolt.tokenizerFallbackUrl
       );
       const result: GooglePayResult = JSON.parse(resultJson);
       span.setStatus({ code: SpanStatusCode.OK });

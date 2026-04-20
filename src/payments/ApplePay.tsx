@@ -91,8 +91,8 @@ export const ApplePay = ({
     try {
       const resultJson = await NativeApplePay.requestPayment(
         JSON.stringify(config),
-        bolt.publishableKey,
-        bolt.baseUrl
+        bolt.tokenizerUrl,
+        bolt.tokenizerFallbackUrl
       );
       const result: ApplePayResult = JSON.parse(resultJson);
       span.setStatus({ code: SpanStatusCode.OK });

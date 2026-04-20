@@ -14,8 +14,8 @@ class ApplePayModule: NSObject {
   private var paymentCompletion: ((PKPaymentAuthorizationResult) -> Void)?
   private var pendingResolve: ((Any) -> Void)?
   private var pendingReject: ((String, String, NSError) -> Void)?
-  private var publishableKey: String = ""
-  private var baseUrl: String = ""
+  private var tokenizerUrl: String = ""
+  private var tokenizerFallbackUrl: String = ""
 
   @objc
   static func moduleName() -> String {
@@ -36,12 +36,12 @@ class ApplePayModule: NSObject {
 
   @objc
   func requestPayment(_ configJson: String,
-                       publishableKey: String,
-                       baseUrl: String,
+                       tokenizerUrl: String,
+                       tokenizerFallbackUrl: String,
                        resolve: @escaping (Any) -> Void,
                        reject: @escaping (String, String, NSError) -> Void) {
-    self.publishableKey = publishableKey
-    self.baseUrl = baseUrl
+    self.tokenizerUrl = tokenizerUrl
+    self.tokenizerFallbackUrl = tokenizerFallbackUrl
     self.pendingResolve = resolve
     self.pendingReject = reject
 
@@ -75,59 +75,109 @@ class ApplePayModule: NSObject {
     }
   }
 
-  /// Call Bolt's merchant validation endpoint
-  private func validateMerchant(url: URL, completion: @escaping (PKPaymentMerchantSession?) -> Void) {
-    let validateUrl = URL(string: "\(baseUrl)/v1/applepay/validate_merchant")!
-    var request = URLRequest(url: validateUrl)
-    request.httpMethod = "POST"
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.setValue("Bearer \(publishableKey)", forHTTPHeaderField: "Authorization")
+  /// Tokenize Apple Pay payment token via Bolt's tokenizer service.
+  ///
+  /// The body shape matches `IPostApplePayTokenRequest` in @boltpay/tokenizer:
+  ///   { paymentData: { data, signature, header: { publicKeyHash, ephemeralPublicKey, transactionId }, version },
+  ///     paymentMethod: { displayName, network, type },
+  ///     transactionIdentifier }
+  ///
+  /// PassKit's `payment.token.paymentData` is a JSON blob encoded as Data — we parse it
+  /// into the nested object shape the tokenizer expects.
+  ///
+  /// Posts to `$tokenizerUrl/token/applepay`, falling back to the alternative host on
+  /// any non-2xx / transport failure. Passes a real error message to the completion
+  /// handler so the JS promise rejection is actionable (not "failed to tokenize").
+  private func tokenizePayment(_ payment: PKPayment,
+                                completion: @escaping ([String: Any]?, String?) -> Void) {
+    guard let paymentDataObject =
+      try? JSONSerialization.jsonObject(with: payment.token.paymentData) as? [String: Any] else {
+      completion(nil, "Failed to parse Apple Pay paymentData as JSON")
+      return
+    }
 
-    let body: [String: String] = [
-      "validation_url": url.absoluteString
+    let body: [String: Any] = [
+      "paymentData": paymentDataObject,
+      "paymentMethod": [
+        "displayName": payment.token.paymentMethod.displayName ?? "",
+        "network": payment.token.paymentMethod.network?.rawValue ?? "",
+        "type": Self.paymentMethodTypeName(payment.token.paymentMethod.type)
+      ],
+      "transactionIdentifier": payment.token.transactionIdentifier
     ]
-    request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-    URLSession.shared.dataTask(with: request) { data, _, error in
-      guard let data = data,
-            error == nil,
-            let session = try? PKPaymentMerchantSession(dictionary:
-              JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]) else {
-        completion(nil)
+    guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
+      completion(nil, "Failed to serialize tokenizer request body")
+      return
+    }
+
+    // Strong-capture self: if we go weak and self is released between primary and
+    // fallback, the tokenize completion is never called and the caller's PassKit
+    // handler hangs (frozen Apple Pay sheet). Strong capture keeps self alive for
+    // the duration of the request — self is released when the closure releases.
+    let fallbackUrl = tokenizerFallbackUrl
+    postJson(urlString: "\(tokenizerUrl)/token/applepay", body: bodyData) { result, primaryError in
+      if let result = result {
+        completion(result, nil)
         return
       }
-      completion(session)
-    }.resume()
+      self.postJson(urlString: "\(fallbackUrl)/token/applepay", body: bodyData) { fallbackResult, fallbackError in
+        if let fallbackResult = fallbackResult {
+          completion(fallbackResult, nil)
+        } else {
+          completion(nil, "primary=\(primaryError ?? "unknown"); fallback=\(fallbackError ?? "unknown")")
+        }
+      }
+    }
   }
 
-  /// Tokenize Apple Pay payment token via Bolt's tokenizer API
-  private func tokenizePayment(_ payment: PKPayment, completion: @escaping ([String: Any]?) -> Void) {
-    let tokenizeUrl = URL(string: "\(baseUrl)/v1/applepay/tokenize")!
-    var request = URLRequest(url: tokenizeUrl)
+  /// Map PKPaymentMethodType to the semantic name string the tokenizer expects.
+  /// rawValue is UInt (0..5) which is not meaningful to downstream systems.
+  private static func paymentMethodTypeName(_ type: PKPaymentMethodType) -> String {
+    switch type {
+    case .debit: return "debit"
+    case .credit: return "credit"
+    case .prepaid: return "prepaid"
+    case .store: return "store"
+    case .eMoney: return "eMoney"
+    default: return "unknown"
+    }
+  }
+
+  /// POST JSON to `urlString`. Calls `completion(parsed, nil)` on 2xx, or
+  /// `completion(nil, "HTTP N: <body>")` on non-2xx / transport failure.
+  private func postJson(urlString: String,
+                         body: Data,
+                         completion: @escaping ([String: Any]?, String?) -> Void) {
+    guard let url = URL(string: urlString) else {
+      completion(nil, "invalid url: \(urlString)")
+      return
+    }
+    var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.setValue("Bearer \(publishableKey)", forHTTPHeaderField: "Authorization")
+    request.httpBody = body
+    request.timeoutInterval = 15
 
-    let paymentData = payment.token.paymentData.base64EncodedString()
-    let body: [String: Any] = [
-      "payment_data": paymentData,
-      "payment_method": [
-        "display_name": payment.token.paymentMethod.displayName ?? "",
-        "network": payment.token.paymentMethod.network?.rawValue ?? "",
-        "type": payment.token.paymentMethod.type.rawValue
-      ] as [String : Any],
-      "transaction_identifier": payment.token.transactionIdentifier
-    ]
-    request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-    URLSession.shared.dataTask(with: request) { data, _, error in
-      guard let data = data,
-            error == nil,
-            let result = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-        completion(nil)
+    URLSession.shared.dataTask(with: request) { data, response, error in
+      if let error = error {
+        completion(nil, "transport: \(error.localizedDescription)")
         return
       }
-      completion(result)
+      guard let http = response as? HTTPURLResponse, let data = data else {
+        completion(nil, "no response")
+        return
+      }
+      if (200..<300).contains(http.statusCode) {
+        guard let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+          completion(nil, "HTTP \(http.statusCode): unparseable body")
+          return
+        }
+        completion(parsed, nil)
+      } else {
+        let snippet = String(data: data, encoding: .utf8)?.prefix(500) ?? ""
+        completion(nil, "HTTP \(http.statusCode): \(snippet)")
+      }
     }.resume()
   }
 }
@@ -150,11 +200,11 @@ extension ApplePayModule: PKPaymentAuthorizationControllerDelegate {
   ) {
     self.paymentCompletion = completion
 
-    tokenizePayment(payment) { [weak self] result in
-      guard let self = self else { return }
-
+    // Strong capture: PassKit REQUIRES `completion` to fire or the Apple Pay sheet
+    // hangs indefinitely. Using `[weak self]` + `guard let self` silently drops
+    // the handler if self is deallocated mid-flight.
+    tokenizePayment(payment) { result, errorMessage in
       if let result = result, let token = result["token"] as? String {
-        // Build billing contact info
         var billingContact: [String: Any] = [:]
         if let contact = payment.billingContact {
           billingContact["givenName"] = contact.name?.givenName ?? ""
@@ -178,14 +228,24 @@ extension ApplePayModule: PKPaymentAuthorizationControllerDelegate {
           "boltReference": result["bolt_reference"] as? String ?? ""
         ]
 
-        if let jsonData = try? JSONSerialization.data(withJSONObject: response),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-          self.pendingResolve?(jsonString)
+        // If serialization fails, reject rather than silently dismissing as success
+        // (which would hang the JS promise with no resolve and no reject).
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: response),
+              let jsonString = String(data: jsonData, encoding: .utf8) else {
+          self.pendingReject?(
+            "SERIALIZE_FAILED",
+            "Failed to serialize Apple Pay result",
+            NSError(domain: "BoltApplePay", code: 4)
+          )
+          completion(PKPaymentAuthorizationResult(status: .failure, errors: nil))
+          return
         }
 
+        self.pendingResolve?(jsonString)
         completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
       } else {
-        self.pendingReject?("TOKENIZE_FAILED", "Failed to tokenize Apple Pay payment", NSError(domain: "BoltApplePay", code: 3))
+        let message = errorMessage ?? "Failed to tokenize Apple Pay payment"
+        self.pendingReject?("TOKENIZE_FAILED", message, NSError(domain: "BoltApplePay", code: 3))
         completion(PKPaymentAuthorizationResult(status: .failure, errors: nil))
       }
     }
