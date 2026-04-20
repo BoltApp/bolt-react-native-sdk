@@ -9,6 +9,7 @@ import { INJECTED_BRIDGE_JS } from '../bridge/injectedBridge';
 import { parseBoltMessage } from '../bridge/parseBoltMessage';
 import { startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
+import { logger } from '../telemetry/logger';
 import type {
   ApplePayBillingContact,
   ApplePayConfig,
@@ -61,8 +62,6 @@ export const ApplePayWebView = ({
   const [available, setAvailable] = useState<boolean | null>(
     Platform.OS === 'ios' ? null : false
   );
-  const [webViewHeight, setWebViewHeight] = useState(48);
-
   useEffect(() => {
     if (Platform.OS !== 'ios' || !NativeApplePay) {
       setAvailable(false);
@@ -109,90 +108,121 @@ export const ApplePayWebView = ({
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
       dispatcher.handleMessage(event);
-      const raw = event.nativeEvent.data;
-
-      try {
-        const outer = JSON.parse(raw);
-
-        // Height change from iframe
-        let msg = outer;
-        if (typeof msg === 'string') {
-          try {
-            msg = JSON.parse(msg);
-          } catch {
-            /* not double-serialized */
-          }
-        }
-        if (msg?.type === 'SetIFrameHeight' && typeof msg.height === 'number') {
-          setWebViewHeight(msg.height);
-          return;
-        }
-
-        // Apple Pay result messages
-        const applePayMsg = parseBoltMessage(raw);
-        if (!applePayMsg) return;
-
-        if (applePayMsg.type === 'addCardFromApplePaySuccess') {
-          const message = applePayMsg.message as Record<string, unknown>;
-          const tokenResult = message.token as
-            | Record<string, unknown>
-            | undefined;
-          const billingContact = message.billingContact as
-            | Record<string, unknown>
-            | undefined;
-
-          const span = startSpan('bolt.apple_pay.webview_complete', {
-            [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
-            [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
-          });
-          span.setStatus({ code: SpanStatusCode.OK });
-          span.end();
-
-          onComplete({
-            token: String(tokenResult?.token ?? ''),
-            bin: tokenResult?.bin as string | undefined,
-            expiration: tokenResult?.expiration as string | undefined,
-            boltReference: String(message.boltReference ?? ''),
-            billingContact: billingContact
-              ? mapBillingContact(billingContact)
-              : undefined,
-          });
-          return;
-        }
-
-        if (applePayMsg.type === 'addCardFromApplePayError') {
-          const message = applePayMsg.message as Record<string, unknown>;
-          const errorCode = Number(message.errorCode ?? 0);
-
-          if (errorCode === ERROR_NOT_AVAILABLE) {
-            setAvailable(false);
-            return;
-          }
-
-          if (errorCode === ERROR_CANCELLED) {
-            // Cancellation is not an error — silently ignore
-            return;
-          }
-
-          const span = startSpan('bolt.apple_pay.webview_error', {
-            [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
-            [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
-          });
-          const errorMessage = String(
-            message.message ?? `Apple Pay error ${errorCode}`
-          );
-          span.setStatus({ code: SpanStatusCode.ERROR, message: errorMessage });
-          span.end();
-
-          onError?.(new Error(errorMessage));
-          return;
-        }
-      } catch {
-        // Non-JSON or unrecognized message — ignore
-      }
     },
-    [dispatcher, onComplete, onError]
+    [dispatcher]
   );
+
+  // Subscribe to Bolt iframe messages via the dispatcher. The dispatcher
+  // unwraps bridge envelopes and passes the Bolt message payload through;
+  // parseBoltMessage converts it into the actual FrameToHost.
+  useEffect(() => {
+    const unsub = dispatcher.onMessage((data) => {
+      const msg = parseBoltMessage(data);
+      if (!msg) return;
+
+      if (msg.type === 'addCardFromApplePaySuccess') {
+        const message = msg.message as Record<string, unknown>;
+        const tokenResult = message.token as
+          | Record<string, unknown>
+          | undefined;
+        const billingContact = message.billingContact as
+          | Record<string, unknown>
+          | undefined;
+
+        const span = startSpan('bolt.apple_pay.webview_complete', {
+          [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+          [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
+        });
+
+        // Guard against a malformed success envelope: a missing token would
+        // silently resolve onComplete with `token: ''`, which the caller
+        // would POST to Bolt and fail server-side with no SDK trail.
+        const tokenString =
+          typeof tokenResult?.token === 'string' ? tokenResult.token : '';
+        if (!tokenString) {
+          const err = new Error('Apple Pay success event was missing a token');
+          span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+          span.recordException(err);
+          span.end();
+          logger.error(err.message, {
+            [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+          });
+          onError?.(err);
+          return;
+        }
+
+        span.setStatus({ code: SpanStatusCode.OK });
+        span.end();
+
+        onComplete({
+          token: tokenString,
+          bin: tokenResult?.bin as string | undefined,
+          expiration: tokenResult?.expiration as string | undefined,
+          boltReference:
+            typeof message.boltReference === 'string'
+              ? message.boltReference
+              : undefined,
+          billingContact: billingContact
+            ? mapBillingContact(billingContact)
+            : undefined,
+        });
+        return;
+      }
+
+      if (msg.type === 'addCardFromApplePayError') {
+        const message = msg.message as Record<string, unknown>;
+        const errorCode = Number(message.errorCode ?? 0);
+        const errorBody = String(message.message ?? '');
+
+        if (errorCode === ERROR_NOT_AVAILABLE) {
+          // The iframe reported Apple Pay unavailable after our pre-flight
+          // canMakePayments() said it was available. Log + span so the
+          // discrepancy shows up in telemetry — otherwise the button just
+          // vanishes from the UI with no signal to the merchant.
+          const span = startSpan('bolt.apple_pay.webview_unavailable_runtime', {
+            [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+          });
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: errorBody || 'Apple Pay reported unavailable after mount',
+          });
+          span.end();
+          logger.warn('Apple Pay reported unavailable after mount', {
+            [BoltAttributes.ERROR_MESSAGE]: errorBody,
+          });
+          setAvailable(false);
+          return;
+        }
+
+        if (errorCode === ERROR_CANCELLED) {
+          // User dismissed the Apple Pay sheet. Not a caller-facing error;
+          // the iframe resets the button state on its own.
+          return;
+        }
+
+        const span = startSpan('bolt.apple_pay.webview_error', {
+          [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+          [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
+        });
+        const errorMessage =
+          errorBody ||
+          `Apple Pay error ${Number.isFinite(errorCode) ? errorCode : 'unknown'}`;
+        const error = new Error(errorMessage);
+        span.setStatus({ code: SpanStatusCode.ERROR, message: errorMessage });
+        span.recordException(error);
+        span.end();
+
+        onError?.(error);
+        return;
+      }
+
+      logger.debug('Ignored unknown Apple Pay message type', {
+        [BoltAttributes.BRIDGE_MESSAGE_TYPE]: String(msg.type ?? 'undefined'),
+      });
+    });
+
+    return unsub;
+  }, [dispatcher, onComplete, onError]);
 
   const handleShouldStartLoad = useCallback(
     (request: ShouldStartLoadRequest): boolean => {
@@ -226,7 +256,7 @@ export const ApplePayWebView = ({
       scrollEnabled={false}
       keyboardDisplayRequiresUserAction={false}
       onShouldStartLoadWithRequest={handleShouldStartLoad}
-      style={[styles.webView, { height: webViewHeight }, style]}
+      style={[styles.webView, style]}
     />
   );
 };
@@ -271,5 +301,6 @@ const styles = StyleSheet.create({
   webView: {
     backgroundColor: 'transparent',
     width: '100%',
+    height: 48,
   },
 });
