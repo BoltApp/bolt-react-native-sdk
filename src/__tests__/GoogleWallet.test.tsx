@@ -1,21 +1,23 @@
 import { Platform } from 'react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { GooglePayConfig, GooglePayButtonType } from '../payments/types';
-import { fetchGooglePayAPMConfig } from '../payments/googlePayApi';
 
-/**
- * Tests for the GoogleWallet component logic.
- *
- * Validates:
- * - Platform gating (Android only)
- * - Availability checks via NativeGooglePay.isReadyToPay
- * - Payment request flow: config serialization → native call → result parsing
- * - Error handling when requestPayment rejects
- * - buttonType prop defaults
- * - APM config fetch from Bolt API
- */
+// GoogleWallet.tsx gates its BoltGooglePayButton require on `Platform.OS === 'android'`
+// at module load. Default Jest platform is 'ios', so flip Platform.OS first and
+// lazy-require the SUT after to ensure the native button component resolves.
+(Platform as any).OS = 'android';
+
+const mockFetchAPMConfig = jest.fn<
+  Promise<unknown>,
+  [string, Record<string, string>]
+>();
+jest.mock('../payments/googlePayApi', () => ({
+  fetchGooglePayAPMConfig: (...args: unknown[]) =>
+    mockFetchAPMConfig(...(args as [string, Record<string, string>])),
+}));
 
 const mockIsReadyToPay = jest.fn<Promise<boolean>, [string]>();
-const mockRequestPayment = jest.fn<Promise<string>, [string, string, string]>();
+const mockRequestPayment = jest.fn<Promise<string>, [string]>();
 
 jest.mock('../native/NativeGooglePay', () => ({
   __esModule: true,
@@ -23,7 +25,7 @@ jest.mock('../native/NativeGooglePay', () => ({
     isReadyToPay: (...args: unknown[]) =>
       mockIsReadyToPay(...(args as [string])),
     requestPayment: (...args: unknown[]) =>
-      mockRequestPayment(...(args as [string, string, string])),
+      mockRequestPayment(...(args as [string])),
   },
 }));
 
@@ -42,6 +44,13 @@ jest.mock('../client/useBolt', () => ({
   }),
 }));
 
+const mockPostGooglePayToken = jest.fn();
+jest.mock('../client/useTkClient', () => ({
+  useTkClient: () => ({
+    postGooglePayToken: mockPostGooglePayToken,
+  }),
+}));
+
 const mockSpan = {
   setStatus: jest.fn(),
   recordException: jest.fn(),
@@ -52,6 +61,27 @@ jest.mock('../telemetry/tracer', () => ({
   startSpan: () => mockSpan,
   SpanStatusCode: { OK: 1, ERROR: 2 },
 }));
+
+// Require the Android-platform source explicitly. Jest's haste is configured
+// with `defaultPlatform: 'ios'`, which resolves `../payments/GoogleWallet` to
+// the `GoogleWallet.ios.tsx` stub (`() => null`). That stub exists for Metro on
+// iOS builds, but these tests exercise the real Android behavior.
+
+const { GoogleWallet } =
+  require('../payments/GoogleWallet.tsx') as typeof import('../payments/GoogleWallet');
+
+/**
+ * Tests for the GoogleWallet component.
+ *
+ * Validates the native-mode handler flow:
+ *   onPress → NativeGooglePay.requestPayment → tkClient.postGooglePayToken
+ *         → onComplete(mapped result)
+ * plus the error branches: tkClient returns Error, native response missing
+ * token, and user-cancelled requestPayment rejection.
+ *
+ * Network-boundary tests for `fetchGooglePayAPMConfig` live in
+ * `googlePayApi.test.ts`.
+ */
 
 const baseConfig: GooglePayConfig = {
   currencyCode: 'USD',
@@ -75,114 +105,172 @@ const mockAPMConfig = {
   },
 };
 
+const rawNativeResponse = {
+  googlePayToken: {
+    intermediateSigningKey: {
+      signedKey: 'sk',
+      signatures: ['s1'],
+    },
+    signature: 'top-sig',
+    signedMessage: 'msg',
+    protocolVersion: 'ECv2',
+  },
+  billingAddress: {
+    name: 'Jane Doe',
+    postalCode: '94105',
+    countryCode: 'US',
+    phoneNumber: '+15551234567',
+  },
+  email: 'jane@example.com',
+};
+
+const renderWallet = async (
+  overrides: { onComplete?: jest.Mock; onError?: jest.Mock } = {}
+) => {
+  const onComplete = overrides.onComplete ?? jest.fn();
+  const onError = overrides.onError ?? jest.fn();
+  const utils = render(
+    <GoogleWallet
+      config={baseConfig}
+      onComplete={onComplete}
+      onError={onError}
+    />
+  );
+  // Two async effects must settle before the button renders:
+  //   1) fetchGooglePayAPMConfig (mocked)
+  //   2) NativeGooglePay.isReadyToPay (mocked)
+  const button = await waitFor(() =>
+    utils.UNSAFE_root.findByType(
+      'BoltGooglePayButton' as unknown as React.ComponentType
+    )
+  );
+  return { ...utils, onComplete, onError, button };
+};
+
 describe('GoogleWallet', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (Platform as any).OS = 'android';
+    mockFetchAPMConfig.mockResolvedValue(mockAPMConfig);
+    mockIsReadyToPay.mockResolvedValue(true);
   });
 
-  describe('platform gating', () => {
-    it('should not call isReadyToPay on iOS', () => {
-      (Platform as any).OS = 'ios';
-      expect(Platform.OS).toBe('ios');
-      expect(Platform.OS !== 'android').toBe(true);
+  it('tokenizes via tkClient and resolves onComplete with the mapped result', async () => {
+    mockRequestPayment.mockResolvedValue(JSON.stringify(rawNativeResponse));
+    mockPostGooglePayToken.mockResolvedValue({
+      token: 'bolt_tok_gp',
+      bin: '411111',
+      expiry: '2027-12',
+      last4: '1234',
+      network: 'visa',
     });
+
+    const { button, onComplete, onError } = await renderWallet();
+    fireEvent(button, 'press');
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(mockPostGooglePayToken).toHaveBeenCalledWith(
+      rawNativeResponse.googlePayToken
+    );
+    expect(onComplete).toHaveBeenCalledWith({
+      token: 'bolt_tok_gp',
+      bin: '411111',
+      expiration: '2027-12',
+      last4: '1234',
+      email: 'jane@example.com',
+      billingAddress: rawNativeResponse.billingAddress,
+    });
+    expect(onError).not.toHaveBeenCalled();
   });
 
-  describe('isReadyToPay', () => {
-    it('should resolve true when Google Pay is available', async () => {
-      mockIsReadyToPay.mockResolvedValue(true);
-      const result = await mockIsReadyToPay(JSON.stringify(baseConfig));
-      expect(result).toBe(true);
-    });
+  it('calls onError when tkClient returns an Error', async () => {
+    mockRequestPayment.mockResolvedValue(JSON.stringify(rawNativeResponse));
+    const tokenizeError = new Error('Bad http response: 400');
+    mockPostGooglePayToken.mockResolvedValue(tokenizeError);
 
-    it('should resolve false when Google Pay is not available', async () => {
-      mockIsReadyToPay.mockResolvedValue(false);
-      const result = await mockIsReadyToPay(JSON.stringify(baseConfig));
-      expect(result).toBe(false);
-    });
+    const { button, onComplete, onError } = await renderWallet();
+    fireEvent(button, 'press');
 
-    it('should pass serialized config to isReadyToPay', async () => {
-      mockIsReadyToPay.mockResolvedValue(true);
-      await mockIsReadyToPay(JSON.stringify(baseConfig));
-      expect(mockIsReadyToPay).toHaveBeenCalledWith(JSON.stringify(baseConfig));
-    });
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(onError).toHaveBeenCalledWith(tokenizeError);
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(mockSpan.recordException).toHaveBeenCalledWith(tokenizeError);
   });
 
-  describe('requestPayment', () => {
-    it('should pass serialized config and tokenizer URLs', async () => {
-      const resultJson = JSON.stringify({ token: 'tok_google_1' });
-      mockRequestPayment.mockResolvedValue(resultJson);
+  it('rejects when native response is missing googlePayToken', async () => {
+    mockRequestPayment.mockResolvedValue(JSON.stringify({ email: 'x@y.z' }));
 
-      await mockRequestPayment(
-        JSON.stringify(baseConfig),
-        'https://production.bolttk.com',
-        'https://tokenizer.bolt.com'
-      );
+    const { button, onComplete, onError } = await renderWallet();
+    fireEvent(button, 'press');
 
-      expect(mockRequestPayment).toHaveBeenCalledWith(
-        JSON.stringify(baseConfig),
-        'https://production.bolttk.com',
-        'https://tokenizer.bolt.com'
-      );
-    });
-
-    it('should return result with token, email, bin, and expiration', async () => {
-      const expected = {
-        token: 'tok_google_1',
-        email: 'jane@example.com',
-        bin: '411111',
-        expiration: '2027-12',
-        billingAddress: {
-          name: 'Jane Doe',
-          postalCode: '94105',
-          countryCode: 'US',
-          phoneNumber: '+15551234567',
-        },
-      };
-      mockRequestPayment.mockResolvedValue(JSON.stringify(expected));
-
-      const resultJson = await mockRequestPayment(
-        JSON.stringify(baseConfig),
-        'https://production.bolttk.com',
-        'https://tokenizer.bolt.com'
-      );
-      const result = JSON.parse(resultJson);
-
-      expect(result.token).toBe('tok_google_1');
-      expect(result.email).toBe('jane@example.com');
-      expect(result.bin).toBe('411111');
-      expect(result.expiration).toBe('2027-12');
-      expect(result.billingAddress.phoneNumber).toBe('+15551234567');
-    });
-
-    it('should propagate errors from native module', async () => {
-      mockRequestPayment.mockRejectedValue(new Error('User cancelled'));
-
-      await expect(
-        mockRequestPayment(
-          JSON.stringify(baseConfig),
-          'https://production.bolttk.com',
-          'https://tokenizer.bolt.com'
-        )
-      ).rejects.toThrow('User cancelled');
-    });
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(mockPostGooglePayToken).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onError.mock.calls[0][0].message).toMatch(/missing googlePayToken/);
   });
 
-  describe('APM config', () => {
-    it('should have the expected bolt_config shape', () => {
-      const config = mockAPMConfig.bolt_config;
-      expect(config.merchant_id).toBe('BCR2DN6T7654321');
-      expect(config.merchant_name).toBe('Demo Store');
-      expect(config.tokenization_specification.type).toBe('PAYMENT_GATEWAY');
-      expect(config.tokenization_specification.parameters).toEqual({
-        gateway: 'bolt',
-        gatewayMerchantId: 'BOLT_MERCHANT_ID',
-      });
-    });
+  it('propagates rejections from requestPayment', async () => {
+    mockRequestPayment.mockRejectedValue(new Error('User cancelled'));
+
+    const { button, onComplete, onError } = await renderWallet();
+    fireEvent(button, 'press');
+
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(onError.mock.calls[0][0].message).toBe('User cancelled');
+    expect(onComplete).not.toHaveBeenCalled();
   });
 
-  describe('buttonType defaults', () => {
+  it('does not render the button when isReadyToPay resolves false', async () => {
+    mockIsReadyToPay.mockResolvedValue(false);
+
+    const onComplete = jest.fn();
+    const onError = jest.fn();
+    const utils = render(
+      <GoogleWallet
+        config={baseConfig}
+        onComplete={onComplete}
+        onError={onError}
+      />
+    );
+    // Let both mounting effects settle — isReadyToPay resolving false means
+    // `available` stays false, so the button should never appear.
+    await waitFor(() => expect(mockIsReadyToPay).toHaveBeenCalled());
+    expect(
+      utils.UNSAFE_root.findAllByType(
+        'BoltGooglePayButton' as unknown as React.ComponentType
+      )
+    ).toHaveLength(0);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('calls onError when the APM config fetch fails', async () => {
+    const fetchError = new Error(
+      'Failed to fetch Google Pay config: 401 Unauthorized'
+    );
+    mockFetchAPMConfig.mockRejectedValue(fetchError);
+
+    const onComplete = jest.fn();
+    const onError = jest.fn();
+    const utils = render(
+      <GoogleWallet
+        config={baseConfig}
+        onComplete={onComplete}
+        onError={onError}
+      />
+    );
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(onError).toHaveBeenCalledWith(fetchError);
+    expect(onComplete).not.toHaveBeenCalled();
+    // Without APM config, isReadyToPay is never called and the button stays hidden.
+    expect(mockIsReadyToPay).not.toHaveBeenCalled();
+    expect(
+      utils.UNSAFE_root.findAllByType(
+        'BoltGooglePayButton' as unknown as React.ComponentType
+      )
+    ).toHaveLength(0);
+  });
+
+  describe('buttonType type-level validity', () => {
     it('should accept all valid GooglePayButtonType values', () => {
       const validTypes: GooglePayButtonType[] = [
         'plain',
@@ -200,47 +288,5 @@ describe('GoogleWallet', () => {
         expect(typed).toBe(t);
       }
     });
-  });
-});
-
-describe('fetchGooglePayAPMConfig', () => {
-  let mockFetch: jest.Mock;
-
-  beforeEach(() => {
-    mockFetch = jest.fn();
-    global.fetch = mockFetch;
-  });
-
-  it('sends the provided headers to the APM config endpoint', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockAPMConfig),
-    });
-
-    await fetchGooglePayAPMConfig('https://api.bolt.com', {
-      'X-Publishable-Key': 'pk_test_abc',
-    });
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.bolt.com/v1/apm_config/googlepay',
-      expect.objectContaining({
-        method: 'GET',
-        headers: { 'X-Publishable-Key': 'pk_test_abc' },
-      })
-    );
-  });
-
-  it('throws when the response is not ok', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 401,
-      statusText: 'Unauthorized',
-    });
-
-    await expect(
-      fetchGooglePayAPMConfig('https://api.bolt.com', {
-        'X-Publishable-Key': 'bad_key',
-      })
-    ).rejects.toThrow('Failed to fetch Google Pay config: 401 Unauthorized');
   });
 });

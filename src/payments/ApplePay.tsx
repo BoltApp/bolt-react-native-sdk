@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, type ViewStyle } from 'react-native';
+import { type IPostApplePayTokenRequest } from '@boltpay/tokenizer';
 import NativeApplePay from '../native/NativeApplePay';
-import { useBolt } from '../client/useBolt';
+import { useTkClient } from '../client/useTkClient';
 import type {
   ApplePayResult,
   ApplePayConfig,
   ApplePayButtonType,
+  ApplePayBillingContact,
 } from './types';
 import { startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
+import { logger } from '../telemetry/logger';
 import { ApplePayWebView } from './ApplePayWebView';
 
 // Conditional require: Metro inlines Platform.OS and eliminates the dead branch at bundle
@@ -63,51 +66,9 @@ export const ApplePay = ({
   mode = 'webview',
   referrer,
 }: ApplePayProps) => {
-  const bolt = useBolt();
-  const [available, setAvailable] = useState(false);
-
-  useEffect(() => {
-    if (mode !== 'native') return;
-    if (Platform.OS !== 'ios' || !NativeApplePay) {
-      setAvailable(false);
-      return;
-    }
-    NativeApplePay.canMakePayments()
-      .then(setAvailable)
-      .catch(() => setAvailable(false));
-  }, [mode]);
-
-  const handlePress = useCallback(async () => {
-    if (!NativeApplePay) {
-      onError?.(new Error('Apple Pay is not available'));
-      return;
-    }
-
-    const span = startSpan('bolt.apple_pay.request_payment', {
-      [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
-      [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
-    });
-
-    try {
-      const resultJson = await NativeApplePay.requestPayment(
-        JSON.stringify(config),
-        bolt.tokenizerUrl,
-        bolt.tokenizerFallbackUrl
-      );
-      const result: ApplePayResult = JSON.parse(resultJson);
-      span.setStatus({ code: SpanStatusCode.OK });
-      span.end();
-      onComplete(result);
-    } catch (err) {
-      const error =
-        err instanceof Error ? err : new Error('Apple Pay payment failed');
-      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
-      span.recordException(error);
-      span.end();
-      onError?.(error);
-    }
-  }, [config, bolt, onComplete, onError]);
-
+  // Split native vs. webview rendering before calling native-only hooks so
+  // webview consumers don't pay the eager TkClient construction cost
+  // (public-key fetch + tweetnacl keypair) that useTkClient triggers.
   if (mode !== 'native') {
     return (
       <ApplePayWebView
@@ -121,6 +82,144 @@ export const ApplePay = ({
       />
     );
   }
+
+  return (
+    <ApplePayNative
+      config={config}
+      onComplete={onComplete}
+      onError={onError}
+      style={style}
+      buttonStyle={buttonStyle}
+      buttonType={buttonType}
+    />
+  );
+};
+
+interface ApplePayNativeProps {
+  config: ApplePayConfig;
+  onComplete: (result: ApplePayResult) => void;
+  onError?: (error: Error) => void;
+  style?: ViewStyle;
+  buttonStyle?: 'black' | 'white' | 'whiteOutline';
+  buttonType?: ApplePayButtonType;
+}
+
+const ApplePayNative = ({
+  config,
+  onComplete,
+  onError,
+  style,
+  buttonStyle = 'black',
+  buttonType = 'plain',
+}: ApplePayNativeProps) => {
+  const tkClient = useTkClient();
+  const [available, setAvailable] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !NativeApplePay) {
+      setAvailable(false);
+      return;
+    }
+    NativeApplePay.canMakePayments()
+      .then(setAvailable)
+      .catch(() => setAvailable(false));
+  }, []);
+
+  const handlePress = useCallback(async () => {
+    if (!NativeApplePay) {
+      onError?.(new Error('Apple Pay is not available'));
+      return;
+    }
+
+    const span = startSpan('bolt.apple_pay.request_payment', {
+      [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+      [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
+    });
+
+    // PassKit keeps the Apple Pay sheet in a processing state between
+    // `requestPayment` resolving and `reportAuthorizationResult` being called.
+    // Track the outcome so the `finally` block reports it regardless of how we
+    // exit the try. Treat `requestPayment` rejections (user cancel, early
+    // native errors) as "nothing pending" — the sheet is already dismissed.
+    let reachedAuthorization = false;
+    let success = false;
+    let lastError: Error | undefined;
+    let result: ApplePayResult | undefined;
+
+    try {
+      const rawJson = await NativeApplePay.requestPayment(
+        JSON.stringify(config)
+      );
+      reachedAuthorization = true;
+
+      const raw: {
+        applePayToken?: IPostApplePayTokenRequest;
+        billingContact?: ApplePayBillingContact;
+      } = JSON.parse(rawJson);
+
+      if (!raw?.applePayToken) {
+        throw new Error('Native Apple Pay response missing applePayToken');
+      }
+
+      const tokenResult = await tkClient.postApplePayToken(raw.applePayToken);
+      if (tokenResult instanceof Error) throw tokenResult;
+
+      result = {
+        token: tokenResult.token,
+        bin: tokenResult.bin,
+        expiration: tokenResult.expiry,
+        billingContact: raw.billingContact,
+      };
+      success = true;
+      span.setStatus({ code: SpanStatusCode.OK });
+      span.end();
+    } catch (err) {
+      lastError =
+        err instanceof Error ? err : new Error('Apple Pay payment failed');
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: lastError.message,
+      });
+      span.recordException(lastError);
+      span.end();
+      onError?.(lastError);
+    } finally {
+      if (reachedAuthorization) {
+        // Invoke the retained PassKit completion so the sheet transitions to
+        // success/failure. `success` reflects tokenization outcome and is
+        // unaffected by any later consumer-callback throw — the sheet lock-in
+        // happens here, before onComplete runs.
+        NativeApplePay.reportAuthorizationResult(
+          success,
+          lastError?.message ?? null
+        ).catch((reportErr) => {
+          // The native method resolves even on internal failure today, so a
+          // rejection here means a bridge/contract change — log so we can
+          // catch it rather than silently dropping the signal.
+          logger.error('apple_pay.report_authorization_result_failed', {
+            error:
+              reportErr instanceof Error
+                ? reportErr.message
+                : String(reportErr),
+          });
+        });
+      }
+    }
+
+    // onComplete runs outside the try/catch so a throwing consumer callback
+    // stays with the consumer — it must not be recorded to telemetry as a
+    // payment error or routed to onError. Guard with a log so it doesn't
+    // surface as an unhandled rejection from this async handler.
+    if (result) {
+      try {
+        onComplete(result);
+      } catch (cbErr) {
+        logger.error('apple_pay.on_complete_threw', {
+          error: cbErr instanceof Error ? cbErr.message : String(cbErr),
+        });
+      }
+    }
+  }, [config, tkClient, onComplete, onError]);
 
   if (!available || !BoltApplePayButton) {
     return null;

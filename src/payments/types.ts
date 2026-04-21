@@ -128,6 +128,12 @@ export interface ApplePayResult {
   bin?: string;
   expiration?: string;
   billingContact?: ApplePayBillingContact;
+  /**
+   * Bolt reference string, only populated in webview mode. Native mode
+   * tokenizes via @boltpay/tokenizer and does not surface a reference. Left
+   * optional on the shared result shape so consumers can read it
+   * conditionally without narrowing on mode.
+   */
   boltReference?: string;
 }
 
@@ -161,9 +167,16 @@ export interface ApplePayConfig {
 export interface GooglePayResult {
   token: string;
   bin?: string;
+  last4?: string;
   expiration?: string;
   email?: string;
   billingAddress?: GooglePayBillingAddress;
+  /**
+   * @deprecated Not populated by the JS tokenizer flow introduced in 0.9.x.
+   * Retained for backwards-compatible typing so consumers reading
+   * `result.boltReference` still compile. Will be removed in the next major
+   * version.
+   */
   boltReference?: string;
 }
 

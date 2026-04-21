@@ -15,9 +15,9 @@ Bolt React Native SDK for payments. Provides Credit Card tokenization, 3D Secure
 ## Installation
 
 ```sh
-npm install @boltpay/react-native react-native-webview
+npm install @boltpay/react-native react-native-webview react-native-get-random-values
 # or
-yarn add @boltpay/react-native react-native-webview
+yarn add @boltpay/react-native react-native-webview react-native-get-random-values
 ```
 
 For iOS:
@@ -26,11 +26,20 @@ For iOS:
 cd ios && pod install
 ```
 
+`react-native-get-random-values` is required because the SDK tokenizes wallet
+payloads (Apple Pay / Google Pay) using `@boltpay/tokenizer`, which needs a
+secure PRNG. Hermes and JavaScriptCore do not ship `crypto.getRandomValues` on
+their own — this peer dependency provides the native implementation via React
+Native autolinking. Install it once alongside the SDK; you don't need to import
+it in your app code, since the SDK activates the polyfill internally the first
+time a wallet component mounts.
+
 ### Requirements
 
 - React Native >= 0.73.0
 - React >= 18.0.0
 - react-native-webview >= 13.0.0
+- react-native-get-random-values >= 2.0.0
 
 ## Quick Start
 
@@ -176,6 +185,7 @@ function CheckoutScreen() {
       buttonStyle="black"
       onComplete={(result) => {
         // result: { token, bin?, expiration?, billingContact?, boltReference? }
+        // boltReference is populated in webview mode only.
       }}
       onError={(error) => console.error(error)}
     />
@@ -236,7 +246,7 @@ function CheckoutScreen() {
       buttonType="buy"
       borderRadius={8}
       onComplete={(result) => {
-        // result: { token, bin?, expiration?, email?, billingAddress?, boltReference? }
+        // result: { token, bin?, last4?, expiration?, email?, billingAddress? }
       }}
       onError={(error) => console.error(error)}
     />
@@ -439,9 +449,9 @@ The migration is a one-line import change. The controller API (`on()`, `tokenize
 - `CreditCardInfo` — `CreditCardId | TokenResult` (input for `fetchReferenceID`)
 - `NativeCardFieldStyles` — `{ textColor?, fontSize?, placeholderColor?, borderColor?, borderWidth?, borderRadius?, backgroundColor?, fontFamily? }` (for `NativeCreditCard`)
 - `EventType` — `'error' | 'valid' | 'blur' | 'focus'`
-- `ApplePayResult` — `{ token, bin?, expiration?, billingContact?, boltReference? }`
+- `ApplePayResult` — `{ token, bin?, expiration?, billingContact?, boltReference? }` (`boltReference` is webview-mode only)
 - `ApplePayButtonType` — Apple-approved button label variants (`'plain'`, `'buy'`, `'checkout'`, `'book'`, `'subscribe'`, `'donate'`, `'order'`, `'setUp'`, `'inStore'`, `'reload'`, `'addMoney'`, `'topUp'`, `'rent'`, `'support'`, `'contribute'`, `'tip'`)
-- `GooglePayResult` — `{ token, bin?, expiration?, email?, billingAddress?, boltReference? }`
+- `GooglePayResult` — `{ token, bin?, last4?, expiration?, email?, billingAddress? }`
 - `GooglePayButtonType` — Google-approved button label variants (`'plain'`, `'buy'`, `'pay'`, `'checkout'`, `'subscribe'`, `'donate'`, `'order'`, `'book'`)
 - `GooglePayButtonTheme` — Button color theme (`'dark'`, `'light'`)
 - `ApplePayConfig` — Apple Pay configuration (merchant ID, country/currency, total)
