@@ -33,6 +33,14 @@ jobs:
           gh pr diff "$PR_NUMBER" > pr.diff
           echo "Diff size: $(wc -c < pr.diff) bytes"
 
+      - name: Check DOCS_WRITE_TOKEN availability
+        run: |
+          if [ -z "${{ secrets.DOCS_WRITE_TOKEN }}" ]; then
+            echo "DOCS_WRITE_TOKEN is empty/not available"
+          else
+            echo "DOCS_WRITE_TOKEN is set"
+          fi
+
       - name: Fetch current bolt-docs react-native files
         env:
           GH_TOKEN: ${{ secrets.DOCS_WRITE_TOKEN }}
