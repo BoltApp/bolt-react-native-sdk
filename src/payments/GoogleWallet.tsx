@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, type ViewStyle } from 'react-native';
+import { type IPostGooglePayTokenRequest } from '@boltpay/tokenizer';
 import NativeGooglePay from '../native/NativeGooglePay';
 import { useBolt } from '../client/useBolt';
+import { useTkClient } from '../client/useTkClient';
 import type {
   GooglePayResult,
   GooglePayConfig,
@@ -9,9 +11,11 @@ import type {
   GooglePayButtonTheme,
   GooglePayAPMConfigResponse,
   GooglePayAPMConfig,
+  GooglePayBillingAddress,
 } from './types';
 import { startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
+import { logger } from '../telemetry/logger';
 import { fetchGooglePayAPMConfig } from './googlePayApi';
 
 export { fetchGooglePayAPMConfig };
@@ -56,6 +60,8 @@ export const GoogleWallet = ({
   const [apmConfigResponse, setApmConfigResponse] =
     useState<GooglePayAPMConfigResponse | null>(null);
 
+  const tkClient = useTkClient();
+
   // Fetch Bolt Google Pay config on mount
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -99,21 +105,42 @@ export const GoogleWallet = ({
       [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
     });
 
+    // Keep onComplete OUT of the try/catch: a throwing consumer callback is
+    // not an SDK payment failure and should not be routed to onError or logged
+    // as a failed tokenization.
+    let result: GooglePayResult | undefined;
     try {
       const nativeConfig = buildNativeConfig(
         config,
         apmConfigResponse.bolt_config,
         bolt.environment
       );
-      const resultJson = await NativeGooglePay.requestPayment(
-        JSON.stringify(nativeConfig),
-        bolt.tokenizerUrl,
-        bolt.tokenizerFallbackUrl
+      const rawJson = await NativeGooglePay.requestPayment(
+        JSON.stringify(nativeConfig)
       );
-      const result: GooglePayResult = JSON.parse(resultJson);
+      const raw: {
+        googlePayToken?: IPostGooglePayTokenRequest;
+        billingAddress?: GooglePayBillingAddress;
+        email?: string;
+      } = JSON.parse(rawJson);
+
+      if (!raw?.googlePayToken) {
+        throw new Error('Native Google Pay response missing googlePayToken');
+      }
+
+      const tokenResult = await tkClient.postGooglePayToken(raw.googlePayToken);
+      if (tokenResult instanceof Error) throw tokenResult;
+
+      result = {
+        token: tokenResult.token,
+        bin: tokenResult.bin,
+        expiration: tokenResult.expiry,
+        last4: tokenResult.last4,
+        email: raw.email,
+        billingAddress: raw.billingAddress,
+      };
       span.setStatus({ code: SpanStatusCode.OK });
       span.end();
-      onComplete(result);
     } catch (err) {
       const error =
         err instanceof Error ? err : new Error('Google Pay payment failed');
@@ -121,8 +148,25 @@ export const GoogleWallet = ({
       span.recordException(error);
       span.end();
       onError?.(error);
+      return;
     }
-  }, [config, apmConfigResponse, bolt, onComplete, onError]);
+    // Guard onComplete separately: a consumer throw is not a payment failure,
+    // so don't route it to onError or surface as an unhandled rejection.
+    try {
+      onComplete(result);
+    } catch (cbErr) {
+      logger.error('google_pay.on_complete_threw', {
+        error: cbErr instanceof Error ? cbErr.message : String(cbErr),
+      });
+    }
+  }, [
+    config,
+    apmConfigResponse,
+    bolt.environment,
+    tkClient,
+    onComplete,
+    onError,
+  ]);
 
   if (!available || !BoltGooglePayButton) {
     return null;

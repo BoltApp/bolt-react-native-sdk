@@ -145,7 +145,7 @@ const AddCardScreen = () => {
       `Token: ${result.token.slice(0, 20)}...\n` +
       `Email: ${result.billingContact?.emailAddress ?? 'N/A'}\n` +
       `Name: ${name || 'N/A'}\n` +
-      `Bolt Ref: ${result.boltReference ?? 'N/A'}`;
+      `BIN: ${result.bin ?? 'N/A'}`;
     setWalletStatus({ type: 'success', message: msg });
     Alert.alert('Apple Pay Card Added', msg);
   }, []);
@@ -156,7 +156,7 @@ const AddCardScreen = () => {
       `Token: ${result.token.slice(0, 20)}...\n` +
       `Email: ${result.email ?? 'N/A'}\n` +
       `Name: ${result.billingAddress?.name ?? 'N/A'}\n` +
-      `Bolt Ref: ${result.boltReference ?? 'N/A'}`;
+      `Last4: ${result.last4 ?? 'N/A'}`;
     setWalletStatus({ type: 'success', message: msg });
     Alert.alert('Google Pay Card Added', msg);
   }, []);

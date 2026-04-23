@@ -8,18 +8,12 @@ export interface Spec extends TurboModule {
   isReadyToPay(config: string): Promise<boolean>;
 
   /**
-   * Present the Google Pay payment sheet.
+   * Present the Google Pay payment sheet and return the raw payment data.
    *
    * @param config JSON-encoded GooglePayConfig
-   * @param tokenizerUrl Primary Bolt tokenizer URL (e.g. https://production.bolttk.com)
-   * @param tokenizerFallbackUrl Fallback tokenizer URL (e.g. https://tokenizer.bolt.com)
-   * @returns JSON-encoded result with token, email, billingAddress, boltReference
+   * @returns JSON-encoded { googlePayToken, email?, billingAddress? } — tokenization happens in JS
    */
-  requestPayment(
-    config: string,
-    tokenizerUrl: string,
-    tokenizerFallbackUrl: string
-  ): Promise<string>;
+  requestPayment(config: string): Promise<string>;
 }
 
 export default TurboModuleRegistry.get<Spec>('BoltGooglePay');

@@ -10,11 +10,6 @@ import com.facebook.react.bridge.ReactMethod
 import com.google.android.gms.wallet.*
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 
 /**
  * TurboModule implementation for Google Pay via PaymentsClient.
@@ -22,7 +17,7 @@ import java.net.URL
  * Handles:
  * 1. Checking Google Pay readiness
  * 2. Presenting the Google Pay payment sheet
- * 3. Tokenizing the result via Bolt's tokenizer API
+ * 3. Returning raw payment data to JS for tokenization via @boltpay/tokenizer
  *
  * The merchant/gateway configuration (tokenization spec, merchant ID, etc.)
  * is fetched from Bolt's /v1/apm_config/googlepay endpoint on the JS side
@@ -44,8 +39,6 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
     override fun getName(): String = NAME
 
     private var pendingPromise: Promise? = null
-    private var pendingTokenizerUrl: String = ""
-    private var pendingTokenizerFallbackUrl: String = ""
 
     private fun getPaymentsClient(activity: Activity, walletEnv: Int): PaymentsClient {
         val walletOptions = Wallet.WalletOptions.Builder()
@@ -96,15 +89,11 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun requestPayment(
         configJson: String,
-        tokenizerUrl: String,
-        tokenizerFallbackUrl: String,
         promise: Promise
     ) {
         try {
             val config = JSONObject(configJson)
             pendingPromise = promise
-            pendingTokenizerUrl = tokenizerUrl
-            pendingTokenizerFallbackUrl = tokenizerFallbackUrl
 
             val paymentDataRequest = buildPaymentDataRequest(config)
             val request = PaymentDataRequest.fromJson(paymentDataRequest.toString())
@@ -112,8 +101,6 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
             val activity = reactApplicationContext.currentActivity
             if (activity == null) {
                 pendingPromise = null
-                pendingTokenizerUrl = ""
-                pendingTokenizerFallbackUrl = ""
                 promise.reject("NO_ACTIVITY", "No current activity")
                 return
             }
@@ -139,7 +126,8 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
     override fun onNewIntent(intent: Intent) {}
 
     /**
-     * Processes the Google Pay payment data and tokenizes via Bolt.
+     * Extracts raw Google Pay payment data and forwards it to JS for tokenization
+     * via @boltpay/tokenizer's TkClient.postGooglePayToken().
      */
     private fun handlePaymentResult(resultCode: Int, paymentData: PaymentData?) {
         val promise = pendingPromise ?: return
@@ -150,59 +138,63 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
             return
         }
 
-        // Snapshot URLs into locals before dispatching to the background thread so a
-        // concurrent requestPayment() cannot race and redirect this tokenize call to
-        // a different host.
-        val tokenizerUrl = pendingTokenizerUrl
-        val tokenizerFallbackUrl = pendingTokenizerFallbackUrl
+        try {
+            val paymentInfo = JSONObject(paymentData.toJson())
+            val result = JSONObject()
 
-        Thread {
-            try {
-                val paymentInfo = JSONObject(paymentData.toJson())
-                val tokenResult = try {
-                    tokenizePayment(paymentInfo, tokenizerUrl, tokenizerFallbackUrl)
-                } catch (e: TokenizerHttpError) {
-                    promise.reject("TOKENIZE_FAILED", e.message, e)
-                    return@Thread
-                }
+            val paymentMethodData = paymentInfo.optJSONObject("paymentMethodData")
 
-                val result = JSONObject()
-                result.put("token", tokenResult.optString("token", ""))
-
-                val paymentMethodData = paymentInfo.optJSONObject("paymentMethodData")
-                val billingAddress = paymentMethodData
-                    ?.optJSONObject("info")
-                    ?.optJSONObject("billingAddress")
-                if (billingAddress != null) {
-                    val address = JSONObject()
-                    address.put("name", billingAddress.optString("name", ""))
-                    address.put("address1", billingAddress.optString("address1", ""))
-                    address.put("address2", billingAddress.optString("address2", ""))
-                    address.put("locality", billingAddress.optString("locality", ""))
-                    address.put("administrativeArea", billingAddress.optString("administrativeArea", ""))
-                    address.put("postalCode", billingAddress.optString("postalCode", ""))
-                    address.put("countryCode", billingAddress.optString("countryCode", ""))
-                    address.put("phoneNumber", billingAddress.optString("phoneNumber", ""))
-                    result.put("billingAddress", address)
-                }
-
-                // Email is at the top level of the payment response
-                val email = paymentInfo.optString("email", "")
-                if (email.isNotEmpty()) {
-                    result.put("email", email)
-                }
-
-                // Bolt reference from tokenize response (used for add-card API)
-                val boltReference = tokenResult.optString("bolt_reference", "")
-                if (boltReference.isNotEmpty()) {
-                    result.put("boltReference", boltReference)
-                }
-
-                promise.resolve(result.toString())
-            } catch (e: Exception) {
-                promise.reject("TOKENIZE_ERROR", e.message, e)
+            // Extract the raw Google Pay token for JS-side tokenization.
+            // tokenizationData.token is a JSON string matching IPostGooglePayTokenRequest.
+            // Reject explicitly when it's missing so the caller sees schema drift as an
+            // actionable error rather than an opaque tokenizer 400 later.
+            val tokenString = paymentMethodData
+                ?.optJSONObject("tokenizationData")
+                ?.optString("token", "")
+            if (tokenString.isNullOrEmpty()) {
+                promise.reject(
+                    "MISSING_TOKEN",
+                    "Google Pay response missing paymentMethodData.tokenizationData.token"
+                )
+                return
             }
-        }.start()
+            val googlePayToken = try {
+                JSONObject(tokenString)
+            } catch (e: org.json.JSONException) {
+                promise.reject(
+                    "MALFORMED_TOKEN",
+                    "Google Pay tokenizationData.token is not valid JSON",
+                    e
+                )
+                return
+            }
+            result.put("googlePayToken", googlePayToken)
+
+            val billingAddress = paymentMethodData
+                ?.optJSONObject("info")
+                ?.optJSONObject("billingAddress")
+            if (billingAddress != null) {
+                val address = JSONObject()
+                address.put("name", billingAddress.optString("name", ""))
+                address.put("address1", billingAddress.optString("address1", ""))
+                address.put("address2", billingAddress.optString("address2", ""))
+                address.put("locality", billingAddress.optString("locality", ""))
+                address.put("administrativeArea", billingAddress.optString("administrativeArea", ""))
+                address.put("postalCode", billingAddress.optString("postalCode", ""))
+                address.put("countryCode", billingAddress.optString("countryCode", ""))
+                address.put("phoneNumber", billingAddress.optString("phoneNumber", ""))
+                result.put("billingAddress", address)
+            }
+
+            val email = paymentInfo.optString("email", "")
+            if (email.isNotEmpty()) {
+                result.put("email", email)
+            }
+
+            promise.resolve(result.toString())
+        } catch (e: Exception) {
+            promise.reject("GOOGLE_PAY_ERROR", e.message, e)
+        }
     }
 
     private fun buildIsReadyToPayRequest(): JSONObject {
@@ -281,92 +273,4 @@ class GooglePayModule(reactContext: ReactApplicationContext) :
         return params
     }
 
-    /**
-     * Tokenize the Google Pay payment token via Bolt's tokenizer service.
-     *
-     * The Google Pay SDK returns `paymentMethodData.tokenizationData.token` as a
-     * JSON string matching `IPostGooglePayTokenRequest`:
-     *   { intermediateSigningKey, signature, signedMessage, protocolVersion }
-     *
-     * We POST that parsed object directly (no wrapping, no Authorization header —
-     * the tokenizer service is unauthenticated; trust comes from the signed payload)
-     * to `$tokenizerUrl/token/googlepay`, falling back to the alternative host on
-     * any non-2xx / transport failure (matches @boltpay/tokenizer client behavior).
-     */
-    private fun tokenizePayment(
-        paymentInfo: JSONObject,
-        tokenizerUrl: String,
-        tokenizerFallbackUrl: String
-    ): JSONObject {
-        // Throw (not return null) on schema drift so the promise rejection carries the
-        // real shape mismatch instead of falling through to the generic "Failed to tokenize".
-        val paymentMethodData = paymentInfo.optJSONObject("paymentMethodData")
-            ?: throw TokenizerHttpError("Google Pay response missing paymentMethodData")
-        val tokenData = paymentMethodData.optJSONObject("tokenizationData")
-            ?: throw TokenizerHttpError("Google Pay response missing tokenizationData")
-        val tokenString = tokenData.optString("token", "")
-        if (tokenString.isEmpty()) throw TokenizerHttpError("Google Pay tokenizationData.token is empty")
-
-        // The Google Pay token is itself JSON — send as-is to the tokenizer.
-        val body = try {
-            JSONObject(tokenString)
-        } catch (e: Exception) {
-            throw TokenizerHttpError("Malformed Google Pay token payload: ${e.message}")
-        }
-
-        val primary = "$tokenizerUrl/token/googlepay"
-        val fallback = "$tokenizerFallbackUrl/token/googlepay"
-
-        val (response, primaryError) = postJson(primary, body)
-        if (response != null) return response
-
-        val (fallbackResponse, fallbackError) = postJson(fallback, body)
-        if (fallbackResponse != null) return fallbackResponse
-
-        throw TokenizerHttpError(
-            "Google Pay tokenize failed. primary=$primaryError; fallback=$fallbackError"
-        )
-    }
-
-    /**
-     * POST JSON to a tokenizer URL. Returns (parsed body, null) on 2xx, or
-     * (null, "HTTP N: <error body>") on non-2xx or transport failure.
-     */
-    private fun postJson(urlString: String, body: JSONObject): Pair<JSONObject?, String?> {
-        val connection = try {
-            (URL(urlString).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                setRequestProperty("Content-Type", "application/json")
-                doOutput = true
-                connectTimeout = 15_000
-                readTimeout = 15_000
-            }
-        } catch (e: Exception) {
-            return null to "connect error: ${e.message}"
-        }
-
-        return try {
-            OutputStreamWriter(connection.outputStream).use { writer ->
-                writer.write(body.toString())
-                writer.flush()
-            }
-            val code = connection.responseCode
-            if (code in 200..299) {
-                val text = BufferedReader(InputStreamReader(connection.inputStream)).use { it.readText() }
-                JSONObject(text) to null
-            } else {
-                val errText = connection.errorStream
-                    ?.let { BufferedReader(InputStreamReader(it)).use { r -> r.readText() } }
-                    ?: ""
-                null to "HTTP $code: ${errText.take(500)}"
-            }
-        } catch (e: Exception) {
-            null to "request error: ${e.message}"
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    /** Thrown when tokenization fails at the HTTP layer so the caller can reject with a real message. */
-    private class TokenizerHttpError(message: String) : Exception(message)
 }

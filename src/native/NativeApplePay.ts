@@ -11,15 +11,26 @@ export interface Spec extends TurboModule {
    * Present the Apple Pay payment sheet.
    *
    * @param config JSON-encoded ApplePayConfig
-   * @param tokenizerUrl Primary Bolt tokenizer URL (e.g. https://production.bolttk.com)
-   * @param tokenizerFallbackUrl Fallback tokenizer URL (e.g. https://tokenizer.bolt.com)
-   * @returns JSON-encoded result with token, billingContact, boltReference
+   * @returns JSON-encoded `{ applePayToken: IPostApplePayTokenRequest, billingContact }`
+   *          to be tokenized on the JS side via @boltpay/tokenizer. The PassKit
+   *          sheet is held in a processing state until the caller reports
+   *          the tokenization outcome via {@link reportAuthorizationResult}.
    */
-  requestPayment(
-    config: string,
-    tokenizerUrl: string,
-    tokenizerFallbackUrl: string
-  ): Promise<string>;
+  requestPayment(config: string): Promise<string>;
+
+  /**
+   * Report the JS-side tokenization outcome so PassKit can finish the sheet.
+   * Must be called after every successful `requestPayment` — on success the
+   * sheet shows the checkmark; on failure it shows the Apple Pay failure state.
+   * No-op if no authorization is pending.
+   *
+   * @param success whether tokenization succeeded
+   * @param errorMessage optional diagnostic string surfaced to native logs
+   */
+  reportAuthorizationResult(
+    success: boolean,
+    errorMessage: string | null
+  ): Promise<void>;
 }
 
 export default TurboModuleRegistry.get<Spec>('BoltApplePay');

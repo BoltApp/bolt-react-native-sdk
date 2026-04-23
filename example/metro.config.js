@@ -17,9 +17,14 @@ const config = withMetroConfig(getDefaultConfig(__dirname), {
   dirname: __dirname,
 });
 
-// Yarn workspaces hoists all packages to the root node_modules.
-// Tell Metro to look there when example/node_modules doesn't exist.
+// Yarn workspaces hoists shared packages to the root node_modules, but packages
+// the example installs exclusively (e.g. `react-native-get-random-values`,
+// which must be a top-level dep for RN autolinking to register its native
+// module) stay in example/node_modules. The SDK source at ../src imports those
+// packages, and Metro resolves from the importing file's location — so we need
+// both paths here.
 config.resolver.nodeModulesPaths = [
+  path.resolve(__dirname, 'node_modules'),
   path.resolve(__dirname, '..', 'node_modules'),
 ];
 

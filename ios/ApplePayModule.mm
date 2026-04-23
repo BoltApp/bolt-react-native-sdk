@@ -4,8 +4,10 @@
 RCT_EXTERN_METHOD(canMakePayments:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(requestPayment:(NSString *)configJson
-                  tokenizerUrl:(NSString *)tokenizerUrl
-                  tokenizerFallbackUrl:(NSString *)tokenizerFallbackUrl
+                  resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(reportAuthorizationResult:(BOOL)success
+                  errorMessage:(NSString *)errorMessage
                   resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 @end

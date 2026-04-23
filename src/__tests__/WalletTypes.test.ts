@@ -11,9 +11,11 @@ import type {
  * particularly the billing contact fields needed for Bolt account creation.
  */
 describe('ApplePay types', () => {
-  it('ApplePayResult should include billingContact with email and phone', () => {
+  it('ApplePayResult should include billingContact, bin, and expiration', () => {
     const result: ApplePayResult = {
       token: 'tok_apple_123',
+      bin: '411111',
+      expiration: '2027-12',
       billingContact: {
         givenName: 'Jane',
         familyName: 'Doe',
@@ -27,10 +29,11 @@ describe('ApplePay types', () => {
           country: 'US',
         },
       },
-      boltReference: 'bolt_ref_123',
     };
 
     expect(result.token).toBe('tok_apple_123');
+    expect(result.bin).toBe('411111');
+    expect(result.expiration).toBe('2027-12');
     expect(result.billingContact?.emailAddress).toBe('jane@example.com');
     expect(result.billingContact?.phoneNumber).toBe('+15551234567');
     expect(result.billingContact?.givenName).toBe('Jane');
@@ -38,14 +41,14 @@ describe('ApplePay types', () => {
     expect(result.billingContact?.postalAddress?.postalCode).toBe('94105');
   });
 
-  it('ApplePayResult should allow optional billingContact fields', () => {
+  it('ApplePayResult should allow optional fields', () => {
     const result: ApplePayResult = {
       token: 'tok_apple_minimal',
     };
 
     expect(result.token).toBe('tok_apple_minimal');
     expect(result.billingContact).toBeUndefined();
-    expect(result.boltReference).toBeUndefined();
+    expect(result.bin).toBeUndefined();
   });
 
   it('ApplePayConfig should require merchantId, countryCode, currencyCode, total', () => {
@@ -62,9 +65,12 @@ describe('ApplePay types', () => {
 });
 
 describe('GooglePay types', () => {
-  it('GooglePayResult should include email, billingAddress with phoneNumber, and boltReference', () => {
+  it('GooglePayResult should include email, billingAddress with phoneNumber, bin, last4, and expiration', () => {
     const result: GooglePayResult = {
       token: 'tok_google_123',
+      bin: '411111',
+      last4: '1234',
+      expiration: '2026-12',
       email: 'jane@example.com',
       billingAddress: {
         name: 'Jane Doe',
@@ -76,18 +82,18 @@ describe('GooglePay types', () => {
         countryCode: 'US',
         phoneNumber: '+15551234567',
       },
-      boltReference: 'bolt_ref_google_456',
     };
 
     expect(result.token).toBe('tok_google_123');
+    expect(result.bin).toBe('411111');
+    expect(result.last4).toBe('1234');
     expect(result.email).toBe('jane@example.com');
     expect(result.billingAddress?.phoneNumber).toBe('+15551234567');
     expect(result.billingAddress?.name).toBe('Jane Doe');
     expect(result.billingAddress?.postalCode).toBe('94105');
-    expect(result.boltReference).toBe('bolt_ref_google_456');
   });
 
-  it('GooglePayResult should allow optional email, billingAddress, and boltReference', () => {
+  it('GooglePayResult should allow optional fields', () => {
     const result: GooglePayResult = {
       token: 'tok_google_minimal',
     };
@@ -95,7 +101,7 @@ describe('GooglePay types', () => {
     expect(result.token).toBe('tok_google_minimal');
     expect(result.email).toBeUndefined();
     expect(result.billingAddress).toBeUndefined();
-    expect(result.boltReference).toBeUndefined();
+    expect(result.last4).toBeUndefined();
   });
 
   it('GooglePayConfig should accept presentation options only', () => {

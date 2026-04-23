@@ -1,19 +1,27 @@
 import { Platform } from 'react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { ApplePay } from '../payments/ApplePay';
 import type { ApplePayConfig, ApplePayButtonType } from '../payments/types';
 
 /**
- * Tests for the ApplePay component logic.
+ * Tests for the ApplePay component in `mode='native'`.
  *
- * Validates:
- * - Platform gating (iOS only)
- * - Availability checks via NativeApplePay.canMakePayments
- * - Payment request flow: config serialization → native call → result parsing
- * - Error handling when requestPayment rejects
- * - buttonType/buttonStyle prop defaults
+ * Validates the native-mode handler flow:
+ *   onPress → NativeApplePay.requestPayment(config)
+ *         → tkClient.postApplePayToken(raw.applePayToken)
+ *         → onComplete(mapped result)
+ *         → NativeApplePay.reportAuthorizationResult(success, errorMessage)
+ * plus error branches (tokenizer returns Error, native response missing token).
+ *
+ * Default `mode='webview'` is exercised by `ApplePayWebView.test.tsx`.
  */
 
 const mockCanMakePayments = jest.fn<Promise<boolean>, []>();
-const mockRequestPayment = jest.fn<Promise<string>, [string, string, string]>();
+const mockRequestPayment = jest.fn<Promise<string>, [string]>();
+const mockReportAuthorizationResult = jest.fn<
+  Promise<void>,
+  [boolean, string | null]
+>();
 
 jest.mock('../native/NativeApplePay', () => ({
   __esModule: true,
@@ -21,7 +29,9 @@ jest.mock('../native/NativeApplePay', () => ({
     canMakePayments: (...args: unknown[]) =>
       mockCanMakePayments(...(args as [])),
     requestPayment: (...args: unknown[]) =>
-      mockRequestPayment(...(args as [string, string, string])),
+      mockRequestPayment(...(args as [string])),
+    reportAuthorizationResult: (...args: unknown[]) =>
+      mockReportAuthorizationResult(...(args as [boolean, string | null])),
   },
 }));
 
@@ -30,10 +40,18 @@ jest.mock('../native/NativeApplePayButton', () => ({
   default: 'BoltApplePayButton',
 }));
 
-jest.mock('../client/useBolt', () => ({
-  useBolt: () => ({
-    publishableKey: 'pk_test_123',
-    baseUrl: 'https://connect.bolt.com',
+// ApplePay.tsx transitively imports ApplePayWebView (for `mode='webview'`)
+// which imports react-native-webview — an ESM module Jest can't transform by
+// default. Stub it since these tests only cover `mode='native'`.
+jest.mock('react-native-webview', () => ({
+  __esModule: true,
+  default: 'WebView',
+}));
+
+const mockPostApplePayToken = jest.fn();
+jest.mock('../client/useTkClient', () => ({
+  useTkClient: () => ({
+    postApplePayToken: mockPostApplePayToken,
   }),
 }));
 
@@ -55,92 +73,147 @@ const baseConfig: ApplePayConfig = {
   total: { label: 'Test', amount: '10.00' },
 };
 
-describe('ApplePay', () => {
+const rawNativeResponse = {
+  applePayToken: {
+    paymentData: {
+      data: 'enc',
+      signature: 'sig',
+      header: {
+        publicKeyHash: 'h',
+        ephemeralPublicKey: 'e',
+        transactionId: 'tx',
+      },
+      version: 'EC_v1',
+    },
+    paymentMethod: {
+      displayName: 'Visa ****',
+      network: 'Visa',
+      type: 'debit',
+    },
+    transactionIdentifier: 'tx_123',
+  },
+  billingContact: {
+    givenName: 'Jane',
+    familyName: 'Doe',
+    emailAddress: 'jane@example.com',
+  },
+};
+
+const renderNative = async (
+  overrides: {
+    onComplete?: jest.Mock;
+    onError?: jest.Mock;
+  } = {}
+) => {
+  const onComplete = overrides.onComplete ?? jest.fn();
+  const onError = overrides.onError ?? jest.fn();
+  const utils = render(
+    <ApplePay
+      mode="native"
+      config={baseConfig}
+      onComplete={onComplete}
+      onError={onError}
+    />
+  );
+  // The native-mode effect probes canMakePayments before rendering the
+  // PKPaymentButton. Wait for that promise to resolve and the button to mount.
+  const button = await waitFor(() =>
+    utils.UNSAFE_root.findByType(
+      'BoltApplePayButton' as unknown as React.ComponentType
+    )
+  );
+  return { ...utils, onComplete, onError, button };
+};
+
+describe('ApplePay (native mode)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (Platform as any).OS = 'ios';
+    mockCanMakePayments.mockResolvedValue(true);
+    mockReportAuthorizationResult.mockResolvedValue(undefined);
   });
 
-  describe('platform gating', () => {
-    it('should not call canMakePayments on Android', () => {
-      (Platform as any).OS = 'android';
-      // Platform check happens in the component's useEffect;
-      // verify the native module itself rejects non-iOS
-      expect(Platform.OS).toBe('android');
-      expect(Platform.OS !== 'ios').toBe(true);
+  it('tokenizes via tkClient and resolves onComplete with the mapped result', async () => {
+    mockRequestPayment.mockResolvedValue(JSON.stringify(rawNativeResponse));
+    mockPostApplePayToken.mockResolvedValue({
+      token: 'bolt_tok_abc',
+      bin: '411111',
+      expiry: '2027-12',
+      last4: '1234',
+      network: 'visa',
     });
+
+    const { button, onComplete, onError } = await renderNative();
+    fireEvent(button, 'press');
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(mockRequestPayment).toHaveBeenCalledWith(JSON.stringify(baseConfig));
+    expect(mockPostApplePayToken).toHaveBeenCalledWith(
+      rawNativeResponse.applePayToken
+    );
+    expect(onComplete).toHaveBeenCalledWith({
+      token: 'bolt_tok_abc',
+      bin: '411111',
+      expiration: '2027-12',
+      billingContact: rawNativeResponse.billingContact,
+    });
+    expect(onError).not.toHaveBeenCalled();
+    expect(mockReportAuthorizationResult).toHaveBeenCalledWith(true, null);
   });
 
-  describe('canMakePayments', () => {
-    it('should resolve true when Apple Pay is available', async () => {
-      mockCanMakePayments.mockResolvedValue(true);
-      const result = await mockCanMakePayments();
-      expect(result).toBe(true);
-    });
+  it('calls onError and reportAuthorizationResult(false) when tkClient returns an Error', async () => {
+    mockRequestPayment.mockResolvedValue(JSON.stringify(rawNativeResponse));
+    const tokenizeError = new Error('Bad http response: 400');
+    mockPostApplePayToken.mockResolvedValue(tokenizeError);
 
-    it('should resolve false when Apple Pay is not available', async () => {
-      mockCanMakePayments.mockResolvedValue(false);
-      const result = await mockCanMakePayments();
-      expect(result).toBe(false);
-    });
+    const { button, onComplete, onError } = await renderNative();
+    fireEvent(button, 'press');
+
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(onError).toHaveBeenCalledWith(tokenizeError);
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(mockReportAuthorizationResult).toHaveBeenCalledWith(
+      false,
+      'Bad http response: 400'
+    );
+    expect(mockSpan.recordException).toHaveBeenCalledWith(tokenizeError);
   });
 
-  describe('requestPayment', () => {
-    it('should pass serialized config and tokenizer URLs', async () => {
-      const resultJson = JSON.stringify({ token: 'tok_apple_1' });
-      mockRequestPayment.mockResolvedValue(resultJson);
+  it('rejects when native response is missing applePayToken', async () => {
+    mockRequestPayment.mockResolvedValue(
+      JSON.stringify({ billingContact: {} })
+    );
 
-      await mockRequestPayment(
-        JSON.stringify(baseConfig),
-        'https://production.bolttk.com',
-        'https://tokenizer.bolt.com'
-      );
+    const { button, onComplete, onError } = await renderNative();
+    fireEvent(button, 'press');
 
-      expect(mockRequestPayment).toHaveBeenCalledWith(
-        JSON.stringify(baseConfig),
-        'https://production.bolttk.com',
-        'https://tokenizer.bolt.com'
-      );
-    });
-
-    it('should return result with token, bin, and expiration', async () => {
-      const expected = {
-        token: 'tok_apple_1',
-        bin: '411111',
-        expiration: '2027-12',
-        billingContact: {
-          emailAddress: 'jane@example.com',
-        },
-      };
-      mockRequestPayment.mockResolvedValue(JSON.stringify(expected));
-
-      const resultJson = await mockRequestPayment(
-        JSON.stringify(baseConfig),
-        'https://production.bolttk.com',
-        'https://tokenizer.bolt.com'
-      );
-      const result = JSON.parse(resultJson);
-
-      expect(result.token).toBe('tok_apple_1');
-      expect(result.bin).toBe('411111');
-      expect(result.expiration).toBe('2027-12');
-      expect(result.billingContact.emailAddress).toBe('jane@example.com');
-    });
-
-    it('should propagate errors from native module', async () => {
-      mockRequestPayment.mockRejectedValue(new Error('User cancelled'));
-
-      await expect(
-        mockRequestPayment(
-          JSON.stringify(baseConfig),
-          'https://production.bolttk.com',
-          'https://tokenizer.bolt.com'
-        )
-      ).rejects.toThrow('User cancelled');
-    });
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(mockPostApplePayToken).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
+    expect(onError.mock.calls[0][0].message).toMatch(/missing applePayToken/);
+    // Authorization was reached (requestPayment resolved) so report still fires.
+    expect(mockReportAuthorizationResult).toHaveBeenCalledWith(
+      false,
+      expect.stringMatching(/missing applePayToken/)
+    );
   });
 
-  describe('buttonType defaults', () => {
+  it('propagates rejections from requestPayment without calling report', async () => {
+    mockRequestPayment.mockRejectedValue(new Error('User cancelled'));
+
+    const { button, onComplete, onError } = await renderNative();
+    fireEvent(button, 'press');
+
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(onError.mock.calls[0][0].message).toBe('User cancelled');
+    expect(onComplete).not.toHaveBeenCalled();
+    // Authorization was never reached — sheet is already dismissed by PassKit,
+    // so there's nothing to report back to native.
+    expect(mockReportAuthorizationResult).not.toHaveBeenCalled();
+  });
+
+  describe('buttonType type-level validity', () => {
     it('should accept all valid ApplePayButtonType values', () => {
       const validTypes: ApplePayButtonType[] = [
         'plain',
@@ -161,7 +234,6 @@ describe('ApplePay', () => {
         'tip',
       ];
 
-      // Type-level check: all values are valid ApplePayButtonType
       for (const t of validTypes) {
         const typed: ApplePayButtonType = t;
         expect(typed).toBe(t);
