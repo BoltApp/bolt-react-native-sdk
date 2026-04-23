@@ -1,0 +1,61 @@
+name: Sync Documentation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+
+jobs:
+  sync-docs:
+    name: Sync Documentation
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: write
+      pull-requests: write
+      models: read
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+      BOLT_DOCS_REPO: BoltApp/bolt-docs
+      DOCS_SUBPATH: content/developers/sdks/react-native
+
+    steps:
+      - name: Checkout SDK repo
+        uses: actions/checkout@v4
+
+      - name: Get PR diff
+        run: |
+          gh pr diff "$PR_NUMBER" > pr.diff
+          echo "Diff size: $(wc -c < pr.diff) bytes"
+
+      - name: Fetch current bolt-docs react-native files
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_WRITE_TOKEN }}
+        run: bash .github/scripts/docs-sync/fetch-docs.sh
+
+      - name: Analyse diff with GPT-4.1 and parse response
+        id: analyse
+        env:
+          # GITHUB_TOKEN has models:read; BOLT_CI_GITHUB_TOKEN (PAT) may not.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/docs-sync/analyse.py
+
+      - name: Create or update bolt-docs PR
+        id: docs_pr
+        if: steps.analyse.outputs.needs_update == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_WRITE_TOKEN }}
+        run: bash .github/scripts/docs-sync/create-pr.sh
+
+      - name: Post or update comment on PR
+        if: always()
+        env:
+          NEEDS_UPDATE: ${{ steps.analyse.outputs.needs_update }}
+          PARSE_ERROR: ${{ steps.analyse.outputs.parse_error }}
+          DOCS_PR_URL: ${{ steps.docs_pr.outputs.docs_pr_url }}
+        run: python3 .github/scripts/docs-sync/post-comment.py
