@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.8.4...v0.9.0) (2026-04-23)
+
+### Features
+
+* install tokenizer package & enrich google pay callback data ([#64](https://github.com/BoltApp/bolt-react-native-sdk/issues/64)) ([c3b8050](https://github.com/BoltApp/bolt-react-native-sdk/commit/c3b805054fd4d01e7cc208b4cbbe6df39a06e2b1))
+
 ## [0.8.4](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.8.3...v0.8.4) (2026-04-20)
 
 ### Bug Fixes
