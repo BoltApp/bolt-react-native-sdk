@@ -13,11 +13,9 @@ class ApplePayModule: NSObject {
   private var paymentCompletion: ((PKPaymentAuthorizationResult) -> Void)?
   private var pendingResolve: ((Any) -> Void)?
   private var pendingReject: ((String, String, NSError) -> Void)?
-  /// Tracks whether the promise has been settled (resolved or rejected) so
-  /// `paymentAuthorizationControllerDidFinish` can detect user cancellation.
-  /// All promise settlements are dispatched to the main queue so that
-  /// `promiseSettled` is only ever read/written from one thread, avoiding
-  /// races between the RN bridge method queue and PassKit delegate calls.
+  /// At-most-once guard for the JS promise. Read and written exclusively on
+  /// the main queue — `requestPayment` hops to main before touching it, and
+  /// the PassKit delegate callbacks fire on main.
   private var promiseSettled: Bool = false
 
   @objc
@@ -69,23 +67,12 @@ class ApplePayModule: NSObject {
   func requestPayment(_ configJson: String,
                        resolve: @escaping (Any) -> Void,
                        reject: @escaping (String, String, NSError) -> Void) {
-    // Re-entry guard: rapid double-tap while an earlier sheet is still pending
-    // would otherwise overwrite pendingResolve and leak the first promise.
-    if self.pendingResolve != nil {
-      reject(
-        "IN_PROGRESS",
-        "Another Apple Pay authorization is already in progress",
-        NSError(domain: "BoltApplePay", code: 5)
-      )
-      return
-    }
-    self.pendingResolve = resolve
-    self.pendingReject = reject
-    self.promiseSettled = false
-
+    // Parse config before hopping queues — pure data work, and an early
+    // rejection here avoids priming any module state that settleReject would
+    // then need to clean up.
     guard let configData = configJson.data(using: .utf8),
           let config = try? JSONSerialization.jsonObject(with: configData) as? [String: Any] else {
-      settleReject("INVALID_CONFIG", "Failed to parse Apple Pay config", NSError(domain: "BoltApplePay", code: 1))
+      reject("INVALID_CONFIG", "Failed to parse Apple Pay config", NSError(domain: "BoltApplePay", code: 1))
       return
     }
 
@@ -106,19 +93,47 @@ class ApplePayModule: NSObject {
 
     request.requiredBillingContactFields = [.postalAddress, .name, .emailAddress, .phoneNumber]
 
+    // Hop to main for all module-state mutation and PassKit interaction.
+    // `pendingResolve`, `pendingReject`, and `promiseSettled` are only touched
+    // from main — keeping all writes (including the initial setup) here is
+    // what makes the promiseSettled guard thread-safe.
     DispatchQueue.main.async {
+      // Re-entry guard: rapid double-tap while an earlier sheet is still
+      // pending would otherwise overwrite pendingResolve and leak the first
+      // promise.
+      if self.pendingResolve != nil {
+        reject(
+          "IN_PROGRESS",
+          "Another Apple Pay authorization is already in progress",
+          NSError(domain: "BoltApplePay", code: 5)
+        )
+        return
+      }
+      self.pendingResolve = resolve
+      self.pendingReject = reject
+      self.promiseSettled = false
+
       let controller = PKPaymentAuthorizationController(paymentRequest: request)
       controller.delegate = self
-      controller.present()
+      controller.present { presented in
+        // If PassKit failed to present (invalid merchantId, missing
+        // entitlement, no supported networks, etc.) neither didAuthorize nor
+        // didFinish will fire, and the JS promise would hang forever without
+        // this explicit rejection.
+        if !presented {
+          self.settleReject(
+            "PRESENT_FAILED",
+            "Failed to present Apple Pay sheet",
+            NSError(domain: "BoltApplePay", code: 7)
+          )
+        }
+      }
     }
   }
 
-  /// Settle the pending JS promise with a resolved value. Dispatched to main so
-  /// it can't race with PassKit delegate callbacks or the RN bridge method
-  /// queue. `promiseSettled` ensures at-most-once delivery and also lets
-  /// `paymentAuthorizationControllerDidFinish` distinguish cancel vs. completion.
-  /// Clears the pending-handler fields so the re-entry guard in requestPayment
-  /// resets for the next call.
+  /// Main-queue-serialized at-most-once promise settlement. Clears the
+  /// pending-handler fields so the requestPayment re-entry guard sees a fresh
+  /// state on the next call.
   private func settleResolve(_ value: Any) {
     DispatchQueue.main.async {
       guard !self.promiseSettled else { return }
@@ -133,7 +148,14 @@ class ApplePayModule: NSObject {
     DispatchQueue.main.async {
       guard !self.promiseSettled else { return }
       self.promiseSettled = true
-      self.pendingReject?(code, message, error)
+      if let pendingReject = self.pendingReject {
+        pendingReject(code, message, error)
+      } else {
+        // Programmer error: a settlement path ran without a pending handler.
+        // Flip the guard anyway so we don't loop, but log so the drop is
+        // diagnosable rather than silently swallowed.
+        NSLog("[BoltApplePay] settleReject with no pendingReject (code=%@): %@", code, message)
+      }
       self.pendingResolve = nil
       self.pendingReject = nil
     }
@@ -175,10 +197,9 @@ extension ApplePayModule: PKPaymentAuthorizationControllerDelegate {
         NSError(domain: "BoltApplePay", code: 2)
       )
       completion(PKPaymentAuthorizationResult(status: .failure, errors: nil))
-      // PassKit forbids invoking the completion handler twice. Drop the
-      // retained completion now so a later reportAuthorizationResult call
-      // from JS (or paymentAuthorizationControllerDidFinish) cannot re-invoke
-      // it. settleReject handles clearing pendingResolve/pendingReject.
+      // PassKit forbids invoking the completion handler twice; drop the
+      // retained completion so a later reportAuthorizationResult or didFinish
+      // can't re-invoke it.
       self.paymentCompletion = nil
       return
     }
@@ -243,17 +264,16 @@ extension ApplePayModule: PKPaymentAuthorizationControllerDelegate {
   func paymentAuthorizationControllerDidFinish(_ controller: PKPaymentAuthorizationController) {
     self.paymentCompletion = nil
     DispatchQueue.main.async {
-      controller.dismiss {
-        // If the promise was never settled, the user dismissed the sheet
-        // before authorizing — this is a cancellation. When the promise has
-        // already been settled (success or earlier error), settleReject is a
-        // no-op thanks to the promiseSettled guard.
-        self.settleReject(
-          "CANCELLED",
-          "User cancelled Apple Pay",
-          NSError(domain: "BoltApplePay", code: 6)
-        )
-      }
+      // Fire-and-forget dismiss: Apple does not reliably invoke the dismiss
+      // completion in every path (see FB7478242-class reports), so we settle
+      // the JS promise outside the completion block. If didAuthorize already
+      // settled the promise, the promiseSettled guard makes this a no-op.
+      controller.dismiss(completion: nil)
+      self.settleReject(
+        "CANCELLED",
+        "User cancelled Apple Pay",
+        NSError(domain: "BoltApplePay", code: 6)
+      )
     }
   }
 }

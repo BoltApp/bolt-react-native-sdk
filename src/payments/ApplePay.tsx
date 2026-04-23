@@ -9,7 +9,7 @@ import type {
   ApplePayButtonType,
   ApplePayBillingContact,
 } from './types';
-import { startSpan, SpanStatusCode } from '../telemetry/tracer';
+import { recordEvent, startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
 import { logger } from '../telemetry/logger';
 import { ApplePayWebView } from './ApplePayWebView';
@@ -131,12 +131,10 @@ const ApplePayNative = ({
       return;
     }
 
-    const buttonSpan = startSpan('bolt.apple_pay.button_pressed', {
+    recordEvent('bolt.apple_pay.button_pressed', {
       [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
       [BoltAttributes.PAYMENT_OPERATION]: 'button_pressed',
     });
-    buttonSpan.setStatus({ code: SpanStatusCode.OK });
-    buttonSpan.end();
 
     const span = startSpan('bolt.apple_pay.request_payment', {
       [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
@@ -179,44 +177,29 @@ const ApplePayNative = ({
       };
       success = true;
 
-      const tokenizeSpan = startSpan('bolt.apple_pay.tokenize_success', {
-        [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
-        [BoltAttributes.PAYMENT_OPERATION]: 'tokenize',
-      });
-      tokenizeSpan.setStatus({ code: SpanStatusCode.OK });
-      tokenizeSpan.end();
-
+      span.addEvent('bolt.apple_pay.tokenize_success');
       span.setStatus({ code: SpanStatusCode.OK });
       span.end();
     } catch (err) {
       lastError =
         err instanceof Error ? err : new Error('Apple Pay payment failed');
+      // The native module rejects with `code: 'CANCELLED'` on user dismissal.
+      // Match the WebView mode's behavior and treat cancel as a silent,
+      // consumer-invisible outcome — don't route through onError, which would
+      // surface a "User cancelled" error to merchant-level error handlers.
       const nativeCode = (err as { code?: string }).code;
-
       if (nativeCode === 'CANCELLED') {
-        const cancelSpan = startSpan('bolt.apple_pay.cancelled', {
-          [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+        span.addEvent('bolt.apple_pay.cancelled', {
           [BoltAttributes.PAYMENT_CANCELLED]: true,
         });
-        cancelSpan.setStatus({ code: SpanStatusCode.OK });
-        cancelSpan.end();
-        span.setStatus({ code: SpanStatusCode.OK, message: 'user_cancelled' });
+        span.setStatus({ code: SpanStatusCode.UNSET });
         span.end();
-        onError?.(lastError);
         return;
       }
 
-      const tokenizeSpan = startSpan('bolt.apple_pay.tokenize_failure', {
-        [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
-        [BoltAttributes.PAYMENT_OPERATION]: 'tokenize',
+      span.addEvent('bolt.apple_pay.tokenize_failure', {
         [BoltAttributes.ERROR_MESSAGE]: lastError.message,
       });
-      tokenizeSpan.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: lastError.message,
-      });
-      tokenizeSpan.end();
-
       span.setStatus({
         code: SpanStatusCode.ERROR,
         message: lastError.message,
