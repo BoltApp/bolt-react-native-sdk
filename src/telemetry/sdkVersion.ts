@@ -1,2 +1,2 @@
 // Auto-updated by scripts/update-sdk-version.js during release. Do not edit manually.
-export const SDK_VERSION = '0.7.4';
+export const SDK_VERSION = '0.9.0';
