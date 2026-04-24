@@ -54,12 +54,22 @@ jest.mock('../client/useTkClient', () => ({
 const mockSpan = {
   setStatus: jest.fn(),
   recordException: jest.fn(),
+  addEvent: jest.fn(),
   end: jest.fn(),
 };
 
+const mockStartSpan = jest.fn<
+  typeof mockSpan,
+  [string, Record<string, unknown>?]
+>(() => mockSpan);
+const mockRecordEvent = jest.fn<void, [string, Record<string, unknown>?]>();
+
 jest.mock('../telemetry/tracer', () => ({
-  startSpan: () => mockSpan,
-  SpanStatusCode: { OK: 1, ERROR: 2 },
+  startSpan: (name: string, attrs?: Record<string, unknown>) =>
+    mockStartSpan(name, attrs),
+  recordEvent: (name: string, attrs?: Record<string, unknown>) =>
+    mockRecordEvent(name, attrs),
+  SpanStatusCode: { OK: 1, ERROR: 2, UNSET: 0 },
 }));
 
 // Require the Android-platform source explicitly. Jest's haste is configured
@@ -209,15 +219,69 @@ describe('GoogleWallet', () => {
     expect(onError.mock.calls[0][0].message).toMatch(/missing googlePayToken/);
   });
 
-  it('propagates rejections from requestPayment', async () => {
-    mockRequestPayment.mockRejectedValue(new Error('User cancelled'));
+  it('propagates non-CANCELLED native rejections through onError', async () => {
+    // A rejection without `code: 'CANCELLED'` — generic native failure.
+    mockRequestPayment.mockRejectedValue(new Error('Native bridge error'));
 
     const { button, onComplete, onError } = await renderWallet();
     fireEvent(button, 'press');
 
     await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
-    expect(onError.mock.calls[0][0].message).toBe('User cancelled');
+    expect(onError.mock.calls[0][0].message).toBe('Native bridge error');
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('treats native CANCELLED code as a silent cancel (no onError)', async () => {
+    // GooglePayModule.kt rejects with code 'CANCELLED' on user dismissal.
+    // Consumers should not see this as an error.
+    const cancelErr = Object.assign(
+      new Error('Google Pay was cancelled or failed'),
+      { code: 'CANCELLED' }
+    );
+    mockRequestPayment.mockRejectedValue(cancelErr);
+
+    const { button, onComplete, onError } = await renderWallet();
+    fireEvent(button, 'press');
+
+    await waitFor(() =>
+      expect(mockSpan.addEvent).toHaveBeenCalledWith(
+        'bolt.google_pay.cancelled',
+        expect.objectContaining({ 'payment.cancelled': true })
+      )
+    );
+    expect(onError).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(mockPostGooglePayToken).not.toHaveBeenCalled();
+  });
+
+  it('records a button_pressed event and a request_payment parent span', async () => {
+    mockRequestPayment.mockResolvedValue(JSON.stringify(rawNativeResponse));
+    mockPostGooglePayToken.mockResolvedValue({
+      token: 'bolt_tok',
+      bin: '411111',
+      expiry: '2027-12',
+      last4: '1234',
+      network: 'visa',
+    });
+
+    const { button } = await renderWallet();
+    fireEvent(button, 'press');
+
+    await waitFor(() =>
+      expect(mockRecordEvent).toHaveBeenCalledWith(
+        'bolt.google_pay.button_pressed',
+        expect.any(Object)
+      )
+    );
+    expect(mockStartSpan).toHaveBeenCalledWith(
+      'bolt.google_pay.request_payment',
+      expect.any(Object)
+    );
+    await waitFor(() =>
+      expect(mockSpan.addEvent).toHaveBeenCalledWith(
+        'bolt.google_pay.tokenize_success'
+      )
+    );
   });
 
   it('does not render the button when isReadyToPay resolves false', async () => {

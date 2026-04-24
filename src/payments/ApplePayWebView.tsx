@@ -7,7 +7,7 @@ import NativeApplePay from '../native/NativeApplePay';
 import { BoltBridgeDispatcher } from '../bridge/BoltBridgeDispatcher';
 import { INJECTED_BRIDGE_JS } from '../bridge/injectedBridge';
 import { parseBoltMessage } from '../bridge/parseBoltMessage';
-import { startSpan, SpanStatusCode } from '../telemetry/tracer';
+import { recordEvent, startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
 import { logger } from '../telemetry/logger';
 import type {
@@ -197,6 +197,11 @@ export const ApplePayWebView = ({
         if (errorCode === ERROR_CANCELLED) {
           // User dismissed the Apple Pay sheet. Not a caller-facing error;
           // the iframe resets the button state on its own.
+          recordEvent('bolt.apple_pay.webview_cancelled', {
+            [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+            [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
+            [BoltAttributes.PAYMENT_CANCELLED]: true,
+          });
           return;
         }
 

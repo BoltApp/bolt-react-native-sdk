@@ -13,7 +13,7 @@ import type {
   GooglePayAPMConfig,
   GooglePayBillingAddress,
 } from './types';
-import { startSpan, SpanStatusCode } from '../telemetry/tracer';
+import { recordEvent, startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
 import { logger } from '../telemetry/logger';
 import { fetchGooglePayAPMConfig } from './googlePayApi';
@@ -100,6 +100,11 @@ export const GoogleWallet = ({
       return;
     }
 
+    recordEvent('bolt.google_pay.button_pressed', {
+      [BoltAttributes.PAYMENT_METHOD]: 'google_pay',
+      [BoltAttributes.PAYMENT_OPERATION]: 'button_pressed',
+    });
+
     const span = startSpan('bolt.google_pay.request_payment', {
       [BoltAttributes.PAYMENT_METHOD]: 'google_pay',
       [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
@@ -139,11 +144,31 @@ export const GoogleWallet = ({
         email: raw.email,
         billingAddress: raw.billingAddress,
       };
+
+      span.addEvent('bolt.google_pay.tokenize_success');
       span.setStatus({ code: SpanStatusCode.OK });
       span.end();
     } catch (err) {
       const error =
         err instanceof Error ? err : new Error('Google Pay payment failed');
+      // GooglePayModule.kt rejects with `code: 'CANCELLED'` on user dismissal
+      // (and unfortunately also generic Google Pay errors; the native side
+      // conflates them). Mirror the Apple Pay and WebView handling and treat
+      // this code path as a silent cancel so merchants don't see a phantom
+      // error for every dismissal.
+      const nativeCode = (err as { code?: string }).code;
+      if (nativeCode === 'CANCELLED') {
+        span.addEvent('bolt.google_pay.cancelled', {
+          [BoltAttributes.PAYMENT_CANCELLED]: true,
+        });
+        span.setStatus({ code: SpanStatusCode.UNSET });
+        span.end();
+        return;
+      }
+
+      span.addEvent('bolt.google_pay.tokenize_failure', {
+        [BoltAttributes.ERROR_MESSAGE]: error.message,
+      });
       span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
       span.recordException(error);
       span.end();

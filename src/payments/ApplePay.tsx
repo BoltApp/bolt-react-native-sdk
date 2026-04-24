@@ -9,7 +9,7 @@ import type {
   ApplePayButtonType,
   ApplePayBillingContact,
 } from './types';
-import { startSpan, SpanStatusCode } from '../telemetry/tracer';
+import { recordEvent, startSpan, SpanStatusCode } from '../telemetry/tracer';
 import { BoltAttributes } from '../telemetry/attributes';
 import { logger } from '../telemetry/logger';
 import { ApplePayWebView } from './ApplePayWebView';
@@ -131,6 +131,11 @@ const ApplePayNative = ({
       return;
     }
 
+    recordEvent('bolt.apple_pay.button_pressed', {
+      [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
+      [BoltAttributes.PAYMENT_OPERATION]: 'button_pressed',
+    });
+
     const span = startSpan('bolt.apple_pay.request_payment', {
       [BoltAttributes.PAYMENT_METHOD]: 'apple_pay',
       [BoltAttributes.PAYMENT_OPERATION]: 'request_payment',
@@ -171,11 +176,30 @@ const ApplePayNative = ({
         billingContact: raw.billingContact,
       };
       success = true;
+
+      span.addEvent('bolt.apple_pay.tokenize_success');
       span.setStatus({ code: SpanStatusCode.OK });
       span.end();
     } catch (err) {
       lastError =
         err instanceof Error ? err : new Error('Apple Pay payment failed');
+      // The native module rejects with `code: 'CANCELLED'` on user dismissal.
+      // Match the WebView mode's behavior and treat cancel as a silent,
+      // consumer-invisible outcome — don't route through onError, which would
+      // surface a "User cancelled" error to merchant-level error handlers.
+      const nativeCode = (err as { code?: string }).code;
+      if (nativeCode === 'CANCELLED') {
+        span.addEvent('bolt.apple_pay.cancelled', {
+          [BoltAttributes.PAYMENT_CANCELLED]: true,
+        });
+        span.setStatus({ code: SpanStatusCode.UNSET });
+        span.end();
+        return;
+      }
+
+      span.addEvent('bolt.apple_pay.tokenize_failure', {
+        [BoltAttributes.ERROR_MESSAGE]: lastError.message,
+      });
       span.setStatus({
         code: SpanStatusCode.ERROR,
         message: lastError.message,

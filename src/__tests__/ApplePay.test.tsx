@@ -58,12 +58,22 @@ jest.mock('../client/useTkClient', () => ({
 const mockSpan = {
   setStatus: jest.fn(),
   recordException: jest.fn(),
+  addEvent: jest.fn(),
   end: jest.fn(),
 };
 
+const mockStartSpan = jest.fn<
+  typeof mockSpan,
+  [string, Record<string, unknown>?]
+>(() => mockSpan);
+const mockRecordEvent = jest.fn<void, [string, Record<string, unknown>?]>();
+
 jest.mock('../telemetry/tracer', () => ({
-  startSpan: () => mockSpan,
-  SpanStatusCode: { OK: 1, ERROR: 2 },
+  startSpan: (name: string, attrs?: Record<string, unknown>) =>
+    mockStartSpan(name, attrs),
+  recordEvent: (name: string, attrs?: Record<string, unknown>) =>
+    mockRecordEvent(name, attrs),
+  SpanStatusCode: { OK: 1, ERROR: 2, UNSET: 0 },
 }));
 
 const baseConfig: ApplePayConfig = {
@@ -199,18 +209,75 @@ describe('ApplePay (native mode)', () => {
     );
   });
 
-  it('propagates rejections from requestPayment without calling report', async () => {
-    mockRequestPayment.mockRejectedValue(new Error('User cancelled'));
+  it('propagates non-CANCELLED native rejections through onError', async () => {
+    // A rejection from the native module that doesn't carry `code: 'CANCELLED'`
+    // (bridge contract failure, PRESENT_FAILED, etc.) — callers should see it.
+    mockRequestPayment.mockRejectedValue(new Error('Native bridge error'));
 
     const { button, onComplete, onError } = await renderNative();
     fireEvent(button, 'press');
 
     await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
-    expect(onError.mock.calls[0][0].message).toBe('User cancelled');
+    expect(onError.mock.calls[0][0].message).toBe('Native bridge error');
     expect(onComplete).not.toHaveBeenCalled();
     // Authorization was never reached — sheet is already dismissed by PassKit,
     // so there's nothing to report back to native.
     expect(mockReportAuthorizationResult).not.toHaveBeenCalled();
+  });
+
+  it('treats native CANCELLED code as a silent cancel (no onError)', async () => {
+    // User dismissing the sheet: native rejects with code 'CANCELLED'. This
+    // must not surface to onError (which would flash a "cancelled" error to
+    // merchant-level error handlers) and must not trigger tokenization or
+    // a PassKit result report — the sheet is already gone.
+    const cancelErr = Object.assign(new Error('User cancelled Apple Pay'), {
+      code: 'CANCELLED',
+    });
+    mockRequestPayment.mockRejectedValue(cancelErr);
+
+    const { button, onComplete, onError } = await renderNative();
+    fireEvent(button, 'press');
+
+    await waitFor(() =>
+      expect(mockSpan.addEvent).toHaveBeenCalledWith(
+        'bolt.apple_pay.cancelled',
+        expect.objectContaining({ 'payment.cancelled': true })
+      )
+    );
+    expect(onError).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(mockPostApplePayToken).not.toHaveBeenCalled();
+    expect(mockReportAuthorizationResult).not.toHaveBeenCalled();
+  });
+
+  it('records a button_pressed event and a request_payment parent span', async () => {
+    mockRequestPayment.mockResolvedValue(JSON.stringify(rawNativeResponse));
+    mockPostApplePayToken.mockResolvedValue({
+      token: 'bolt_tok',
+      bin: '411111',
+      expiry: '2027-12',
+      last4: '1234',
+      network: 'visa',
+    });
+
+    const { button } = await renderNative();
+    fireEvent(button, 'press');
+
+    await waitFor(() =>
+      expect(mockRecordEvent).toHaveBeenCalledWith(
+        'bolt.apple_pay.button_pressed',
+        expect.any(Object)
+      )
+    );
+    expect(mockStartSpan).toHaveBeenCalledWith(
+      'bolt.apple_pay.request_payment',
+      expect.any(Object)
+    );
+    await waitFor(() =>
+      expect(mockSpan.addEvent).toHaveBeenCalledWith(
+        'bolt.apple_pay.tokenize_success'
+      )
+    );
   });
 
   describe('buttonType type-level validity', () => {
