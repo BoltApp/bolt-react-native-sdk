@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.1](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.0...v0.9.1) (2026-04-28)
+
+### Bug Fixes
+
+* surface card network on Apple Pay and Google Pay results ([#67](https://github.com/BoltApp/bolt-react-native-sdk/issues/67)) ([f56d502](https://github.com/BoltApp/bolt-react-native-sdk/commit/f56d50254926e6ea7483db7a6facd839dbe022e4))
+
 ## [0.9.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.8.4...v0.9.0) (2026-04-23)
 
 ### Features
