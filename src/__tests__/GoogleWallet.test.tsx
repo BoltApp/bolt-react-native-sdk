@@ -187,6 +187,7 @@ describe('GoogleWallet', () => {
       bin: '411111',
       expiration: '2027-12',
       last4: '1234',
+      network: 'visa',
       email: 'jane@example.com',
       billingAddress: rawNativeResponse.billingAddress,
     });

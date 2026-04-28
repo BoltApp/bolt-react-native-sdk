@@ -173,6 +173,7 @@ const ApplePayNative = ({
         token: tokenResult.token,
         bin: tokenResult.bin,
         expiration: tokenResult.expiry,
+        network: tokenResult.network,
         billingContact: raw.billingContact,
       };
       success = true;

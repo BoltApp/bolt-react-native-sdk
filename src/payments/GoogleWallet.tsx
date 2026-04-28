@@ -141,6 +141,7 @@ export const GoogleWallet = ({
         bin: tokenResult.bin,
         expiration: tokenResult.expiry,
         last4: tokenResult.last4,
+        network: tokenResult.network,
         email: raw.email,
         billingAddress: raw.billingAddress,
       };
