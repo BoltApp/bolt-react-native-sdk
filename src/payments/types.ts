@@ -126,6 +126,7 @@ export type GooglePayButtonTheme = 'dark' | 'light';
 export interface ApplePayResult {
   token: string;
   bin?: string;
+  network?: string;
   expiration?: string;
   billingContact?: ApplePayBillingContact;
   /**
@@ -168,6 +169,7 @@ export interface GooglePayResult {
   token: string;
   bin?: string;
   last4?: string;
+  network?: string;
   expiration?: string;
   email?: string;
   billingAddress?: GooglePayBillingAddress;

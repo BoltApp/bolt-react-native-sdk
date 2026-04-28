@@ -165,6 +165,7 @@ describe('ApplePay (native mode)', () => {
       token: 'bolt_tok_abc',
       bin: '411111',
       expiration: '2027-12',
+      network: 'visa',
       billingContact: rawNativeResponse.billingContact,
     });
     expect(onError).not.toHaveBeenCalled();
