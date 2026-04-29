@@ -44,6 +44,7 @@ class GooglePayButtonViewManager :
 
     @ReactProp(name = "borderRadius", defaultFloat = 0f)
     override fun setBorderRadius(view: GooglePayButtonView, borderRadius: Float) {
-        view.updateBorderRadius(PixelUtil.toPixelFromDIP(borderRadius))
+        val radiusPx = PixelUtil.toPixelFromDIP(borderRadius).toInt().coerceAtLeast(0)
+        view.updateBorderRadius(radiusPx)
     }
 }

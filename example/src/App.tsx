@@ -245,6 +245,7 @@ const AddCardScreen = () => {
             onComplete={handleGooglePayComplete}
             onError={handleWalletError}
             style={styles.walletButton}
+            borderRadius={25}
           />
         )}
 

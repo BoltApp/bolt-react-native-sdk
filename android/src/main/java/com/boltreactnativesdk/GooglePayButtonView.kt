@@ -1,9 +1,6 @@
 package com.boltreactnativesdk
 
 import android.content.Context
-import android.graphics.Outline
-import android.view.View
-import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.uimanager.UIManagerHelper
@@ -20,25 +17,16 @@ class GooglePayButtonView(context: Context) : FrameLayout(context) {
 
     private var currentButtonType: String = "plain"
     private var currentButtonTheme: String = "dark"
-    private var cornerRadiusPx: Float = 0f
+    private var cornerRadiusPx: Int = 0
 
     init {
         rebuildButton()
     }
 
-    fun updateBorderRadius(radiusPx: Float) {
+    fun updateBorderRadius(radiusPx: Int) {
+        if (radiusPx == cornerRadiusPx) return
         cornerRadiusPx = radiusPx
-        if (radiusPx > 0f) {
-            outlineProvider = object : ViewOutlineProvider() {
-                override fun getOutline(view: View, outline: Outline) {
-                    outline.setRoundRect(0, 0, view.width, view.height, radiusPx)
-                }
-            }
-            clipToOutline = true
-        } else {
-            outlineProvider = ViewOutlineProvider.BACKGROUND
-            clipToOutline = false
-        }
+        rebuildButton()
     }
 
     fun updateButtonType(type: String) {
@@ -60,6 +48,7 @@ class GooglePayButtonView(context: Context) : FrameLayout(context) {
         val options = ButtonOptions.newBuilder()
             .setButtonType(mapButtonType(currentButtonType))
             .setButtonTheme(mapButtonTheme(currentButtonTheme))
+            .setCornerRadius(cornerRadiusPx)
             .setAllowedPaymentMethods(ALLOWED_PAYMENT_METHODS)
             .build()
         button.initialize(options)
