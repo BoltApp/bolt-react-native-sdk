@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.2](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.1...v0.9.2) (2026-04-29)
+
+### Bug Fixes
+
+* **android:** apply Google Pay button borderRadius via ButtonOptions ([#68](https://github.com/BoltApp/bolt-react-native-sdk/issues/68)) ([74044fb](https://github.com/BoltApp/bolt-react-native-sdk/commit/74044fb914176fd208908692b55b1bf043e5361e))
+
 ## [0.9.1](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.0...v0.9.1) (2026-04-28)
 
 ### Bug Fixes
