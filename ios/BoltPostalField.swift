@@ -15,7 +15,7 @@ class BoltPostalField: BoltBaseField {
   }
 
   private func setup() {
-    placeholder = "Billing zip"
+    placeholder = "Postal code"
     keyboardType = .default
     autocorrectionType = .no
     spellCheckingType = .no

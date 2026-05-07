@@ -1,5 +1,5 @@
 PODS:
-  - BoltReactNativeSdk (0.9.0):
+  - BoltReactNativeSdk (0.9.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1754,9 +1754,9 @@ PODS:
     - React-runtimeexecutor
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - ReactAppDependencyProvider (0.85.0):
+  - ReactAppDependencyProvider (0.85.2):
     - ReactCodegen
-  - ReactCodegen (0.85.0):
+  - ReactCodegen (0.85.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2050,7 +2050,7 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  BoltReactNativeSdk: 73295af8005b194c7e540f5ec24c01052a407336
+  BoltReactNativeSdk: 39dc5824d68bad253daccec5c53ac3fb51ce96ad
   FBLazyVector: 26fd21c75314e101f280d401e97f27d54f3f7064
   hermes-engine: bd88c0774d9ce8cc1a486c246afaffcfdef8237f
   RCTDeprecation: c7a2768f905d76ca6d2cfefb26e4349eacbdfca3
@@ -2121,8 +2121,8 @@ SPEC CHECKSUMS:
   React-timing: c307da445abf09b4597796951f15118707dd99b5
   React-utils: 76e964b4a6b480ea47cc22392595028a2a4c879b
   React-webperformancenativemodule: f7cdde6e05a1f94e7dec4ff4956bdabfd544f2a5
-  ReactAppDependencyProvider: 706b65371b90b5cc797b6639e8979f2e5cecd6da
-  ReactCodegen: 7aad71c10c1852b664587c865175f73819fb9460
+  ReactAppDependencyProvider: 2201c845e5f506d5957669e66abb8de5ce20ad1f
+  ReactCodegen: bde8734501b3183c7a5e33be4473caaef8d715c4
   ReactCommon: 376f3a275bcf5e59a360e0b1762beb3bd41495ce
   ReactNativeDependencies: e7def8d3e9a65cecae96ee4713e8b4f9bc40281b
   Yoga: df8920a8f8ca99996048f6aea23a529f44992eac

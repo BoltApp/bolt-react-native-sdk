@@ -23,7 +23,7 @@ import com.facebook.react.uimanager.UIManagerHelper
  *
  *   Row 1:  [card icon] Card number            (full width, rounded border)
  *   Row 2:  Expiration  |  CVV                 (split 50/50 with divider, rounded border)
- *   Row 3:  Billing zip                        (full width, hidden by default, rounded border)
+ *   Row 3:  Postal code                        (full width, hidden by default, rounded border)
  *
  * Row spacing: 16dp. Row height: 48dp. Corner radius: 10dp.
  * Border: #d1d5db, 1dp. Background: #fafafa. Cursor: Bolt purple #5A31F4.
@@ -198,7 +198,7 @@ class BoltCardFieldView(context: Context) : LinearLayout(context) {
         postalField.background = null
         postalField.setTextColor(colorNormal)
         postalField.setHintTextColor(Color.parseColor("#9ca3af"))
-        postalField.hint = "Billing zip"
+        postalField.hint = "Postal code"
         postalField.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
         postalField.gravity = Gravity.CENTER_VERTICAL
         postalField.setPadding(dp(12), 0, dp(12), 0)

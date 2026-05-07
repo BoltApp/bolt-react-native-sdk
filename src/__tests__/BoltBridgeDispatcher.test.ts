@@ -238,6 +238,47 @@ describe('BoltBridgeDispatcher', () => {
     expect(mockWebView.injectJavaScript).toHaveBeenCalled();
   });
 
+  it('sendBootstrapPort emits a postMessage envelope with virtualPortId', () => {
+    const { dispatcher, injectedScripts } = createDispatcher();
+    dispatcher.handleMessage(makeBridgeReadyEvent());
+
+    dispatcher.sendBootstrapPort('vp_test', { type: 'setPort', payload: 'x' });
+
+    expect(injectedScripts).toHaveLength(1);
+    const match = injectedScripts[0]!.match(/__boltBridgeReceive\((".*")\)/s);
+    expect(match).not.toBeNull();
+    const inner = JSON.parse(match![1]!) as string;
+    const envelope = JSON.parse(inner);
+    expect(envelope).toMatchObject({
+      __boltBridge: true,
+      type: 'postMessage',
+      virtualPortId: 'vp_test',
+      data: { type: 'setPort', payload: 'x' },
+    });
+  });
+
+  it('sendBootstrapPort queues until bridge ready', () => {
+    const { dispatcher, injectedScripts } = createDispatcher();
+    dispatcher.sendBootstrapPort('vp_test', { type: 'setPort' });
+    expect(injectedScripts).toHaveLength(0);
+
+    dispatcher.handleMessage(makeBridgeReadyEvent());
+    expect(injectedScripts).toHaveLength(1);
+  });
+
+  it('onReady listener fires on every transition to ready', () => {
+    const { dispatcher } = createDispatcher();
+    const onReady = jest.fn();
+    dispatcher.onReady(onReady);
+
+    dispatcher.handleMessage(makeBridgeReadyEvent());
+    expect(onReady).toHaveBeenCalledTimes(1);
+
+    dispatcher.reset();
+    dispatcher.handleMessage(makeBridgeReadyEvent());
+    expect(onReady).toHaveBeenCalledTimes(2);
+  });
+
   it('should not throw when sending message with no webView', () => {
     const ref = { current: null };
     const dispatcher = new BoltBridgeDispatcher(ref as any);
@@ -293,6 +334,140 @@ describe('INJECTED_BRIDGE_JS', () => {
   it('should signal bridgeReady only once', () => {
     expect(INJECTED_BRIDGE_JS).toContain('function signalReady()');
     expect(INJECTED_BRIDGE_JS).toContain('if (bridgeReady) return');
+  });
+});
+
+describe('INJECTED_BRIDGE_JS — VirtualMessagePort runtime', () => {
+  // Evaluate the injected script in a sandboxed window so we can drive the
+  // virtual port directly. The script bails out unless window.parent ===
+  // window, so we set that up before evaluating.
+  const makeSandbox = () => {
+    const sandbox: any = {};
+    sandbox.window = sandbox;
+    sandbox.self = sandbox;
+    sandbox.parent = sandbox;
+    sandbox.location = { origin: 'https://iframe.test' };
+    sandbox.document = {
+      readyState: 'complete',
+      addEventListener: () => {},
+      referrer: '',
+    };
+    sandbox.ReactNativeWebView = { postMessage: jest.fn() };
+    sandbox.console = { error: jest.fn(), log: jest.fn(), warn: jest.fn() };
+    sandbox.addEventListener = () => {};
+    sandbox.removeEventListener = () => {};
+    // The script references bare `document` and `console` (e.g.
+    // document.readyState, console.error). Pass them as function
+    // parameters so lookups resolve locally instead of escaping to the
+    // test's global scope.
+    // eslint-disable-next-line no-new-func
+    new Function('window', 'document', 'console', INJECTED_BRIDGE_JS)(
+      sandbox,
+      sandbox.document,
+      sandbox.console
+    );
+    return sandbox;
+  };
+
+  const capturePort = (sandbox: any, portId: string) => {
+    let port: any = null;
+    sandbox.addEventListener('message', (event: any) => {
+      if (event.ports && event.ports[0]) port = event.ports[0];
+    });
+    sandbox.__boltBridgeReceive(
+      JSON.stringify({
+        __boltBridge: true,
+        type: 'postMessage',
+        virtualPortId: portId,
+        data: null,
+      })
+    );
+    return port;
+  };
+
+  it('dispatches port messages to addEventListener("message") with origin ""', () => {
+    const sandbox = makeSandbox();
+    const port = capturePort(sandbox, 'vp_capture');
+
+    expect(port).not.toBeNull();
+    expect(typeof port.addEventListener).toBe('function');
+    expect(typeof port.removeEventListener).toBe('function');
+
+    port.start();
+    const events: any[] = [];
+    const listener = (e: any) => events.push(e);
+    port.addEventListener('message', listener);
+    // Duplicate add is deduped.
+    port.addEventListener('message', listener);
+
+    sandbox.__boltBridgeReceive(
+      JSON.stringify({
+        __boltBridge: true,
+        type: 'portMessage',
+        virtualPortId: 'vp_capture',
+        data: 'payload-1',
+      })
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ data: 'payload-1', origin: '' });
+
+    port.removeEventListener('message', listener);
+    sandbox.__boltBridgeReceive(
+      JSON.stringify({
+        __boltBridge: true,
+        type: 'portMessage',
+        virtualPortId: 'vp_capture',
+        data: 'payload-2',
+      })
+    );
+    expect(events).toHaveLength(1);
+  });
+
+  it('addEventListener ignores non-message types and non-functions', () => {
+    const sandbox = makeSandbox();
+    const port = capturePort(sandbox, 'vp_filter');
+    port.start();
+
+    expect(() => port.addEventListener('not-message', () => {})).not.toThrow();
+    expect(() => port.addEventListener('message', null)).not.toThrow();
+    expect(() => port.addEventListener('message', 'not-a-fn')).not.toThrow();
+
+    const real = jest.fn();
+    port.addEventListener('message', real);
+    sandbox.__boltBridgeReceive(
+      JSON.stringify({
+        __boltBridge: true,
+        type: 'portMessage',
+        virtualPortId: 'vp_filter',
+        data: 'x',
+      })
+    );
+    expect(real).toHaveBeenCalledTimes(1);
+  });
+
+  it('a throwing listener does not block sibling listeners', () => {
+    const sandbox = makeSandbox();
+    const port = capturePort(sandbox, 'vp_throw');
+    port.start();
+
+    const sibling = jest.fn();
+    port.addEventListener('message', () => {
+      throw new Error('boom');
+    });
+    port.addEventListener('message', sibling);
+
+    sandbox.__boltBridgeReceive(
+      JSON.stringify({
+        __boltBridge: true,
+        type: 'portMessage',
+        virtualPortId: 'vp_throw',
+        data: 'x',
+      })
+    );
+
+    expect(sibling).toHaveBeenCalledTimes(1);
+    expect(sandbox.console.error).toHaveBeenCalled();
   });
 });
 

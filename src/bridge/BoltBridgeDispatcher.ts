@@ -109,6 +109,33 @@ export class BoltBridgeDispatcher {
   }
 
   /**
+   * Deliver a virtual MessagePort to the iframe via a window-level
+   * postMessage. Queues until the bridge is ready.
+   */
+  sendBootstrapPort(virtualPortId: string, data: unknown): void {
+    const envelope: BridgeEnvelope = {
+      __boltBridge: true,
+      direction: 'inbound',
+      type: 'postMessage',
+      data,
+      virtualPortId,
+    };
+
+    if (!this.ready) {
+      logger.debug('Bootstrap port queued (bridge not ready)', {
+        [BoltAttributes.BRIDGE_DIRECTION]: 'outbound',
+      });
+      this.pendingMessages.push(envelope);
+      return;
+    }
+
+    logger.debug('Sending bootstrap port', {
+      [BoltAttributes.BRIDGE_DIRECTION]: 'outbound',
+    });
+    this.injectEnvelope(envelope);
+  }
+
+  /**
    * Register a listener for postMessage events from the iframe.
    */
   onMessage(listener: MessageListener): () => void {
@@ -131,14 +158,16 @@ export class BoltBridgeDispatcher {
   }
 
   /**
-   * Register a listener for when the bridge becomes ready.
+   * Register a listener that fires every time the bridge becomes ready.
+   * If the bridge is already ready, fires immediately. Continues to fire on
+   * subsequent ready transitions (e.g., after reset() + reload) until the
+   * returned unsubscribe function is called.
    */
   onReady(listener: () => void): () => void {
+    this.readyListeners.push(listener);
     if (this.ready) {
       listener();
-      return () => {};
     }
-    this.readyListeners.push(listener);
     return () => {
       this.readyListeners = this.readyListeners.filter((l) => l !== listener);
     };
@@ -197,10 +226,17 @@ export class BoltBridgeDispatcher {
           this.bridgeReadySpan = undefined;
         }
         this.flushPendingMessages();
+        // Listeners persist across ready transitions (so reload re-arms them).
         for (const listener of this.readyListeners) {
-          listener();
+          try {
+            listener();
+          } catch (err) {
+            logger.error('Error in ready listener', {
+              [BoltAttributes.ERROR_MESSAGE]:
+                err instanceof Error ? err.message : String(err),
+            });
+          }
         }
-        this.readyListeners = [];
         break;
 
       case 'postMessage':
@@ -211,7 +247,14 @@ export class BoltBridgeDispatcher {
         if (envelope.virtualPortId) {
           const portListener = this.portListeners.get(envelope.virtualPortId);
           if (portListener) {
-            portListener(envelope.data, envelope.virtualPortId);
+            try {
+              portListener(envelope.data, envelope.virtualPortId);
+            } catch (err) {
+              logger.error('Error in port listener', {
+                [BoltAttributes.ERROR_MESSAGE]:
+                  err instanceof Error ? err.message : String(err),
+              });
+            }
           }
         }
         break;

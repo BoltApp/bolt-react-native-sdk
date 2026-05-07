@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -11,6 +12,7 @@ import WebView, { type WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 import { useBolt } from '../client/useBolt';
 import { BoltBridgeDispatcher } from './BoltBridgeDispatcher';
+import { BoltRpcHandler } from './BoltRpcHandler';
 import { buildIframeUrl } from './buildIframeUrl';
 import { INJECTED_BRIDGE_JS } from './injectedBridge';
 
@@ -51,12 +53,28 @@ export const BoltPaymentWebView = forwardRef<
   const webViewRef = useRef<WebView>(null);
   const [webViewHeight, setWebViewHeight] = useState(200);
 
-  // Expose handle to parent
+  // Without this the iframe's loadMerchantDetails RPC hangs and elements
+  // render with default copy.
+  const rpcRef = useRef<BoltRpcHandler | null>(null);
+  useEffect(() => {
+    const rpc = new BoltRpcHandler(dispatcher, bolt);
+    rpcRef.current = rpc;
+    rpc.start();
+    return () => {
+      rpc.stop();
+      rpcRef.current = null;
+    };
+  }, [dispatcher, bolt]);
+
   useImperativeHandle(
     ref,
     () => ({
       dispatcher,
-      reload: () => webViewRef.current?.reload(),
+      reload: () => {
+        // Drop cached RPC responses so the reloaded iframe re-fetches.
+        rpcRef.current?.reset();
+        webViewRef.current?.reload();
+      },
     }),
     [dispatcher]
   );
