@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.3](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.2...v0.9.3) (2026-05-07)
+
+### Bug Fixes
+
+* wire iframe RPC handshake so WebView elements load merchant customizations ([#70](https://github.com/BoltApp/bolt-react-native-sdk/issues/70)) ([62714b3](https://github.com/BoltApp/bolt-react-native-sdk/commit/62714b3f98c2553e879ef2ca332704d6d2f275c5))
+
 ## [0.9.2](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.1...v0.9.2) (2026-04-29)
 
 ### Bug Fixes
