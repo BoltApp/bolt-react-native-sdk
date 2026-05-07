@@ -41,7 +41,7 @@
   ],
   "scripts": {
     "example": "yarn workspace bolt-react-native-sdk-example",
-    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
+    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib example/src/boltConfig.ts",
     "prepare": "node scripts/update-sdk-version.js && bob build",
     "typecheck": "tsc",
     "test": "jest",

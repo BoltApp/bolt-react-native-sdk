@@ -66,6 +66,7 @@ export const INJECTED_BRIDGE_JS = `
     this.onmessage = null;
     this._started = false;
     this._queue = [];
+    this._listeners = [];
     virtualPorts[portId] = this;
   }
 
@@ -87,9 +88,31 @@ export const INJECTED_BRIDGE_JS = `
     delete virtualPorts[this.portId];
   };
 
+  // EventTarget-style API: storm's RPC layer (rpc.ts) registers handlers via
+  // port.addEventListener('message', ...), so we must support it in addition
+  // to the .onmessage property assignment path.
+  VirtualMessagePort.prototype.addEventListener = function(type, listener) {
+    if (type !== 'message' || typeof listener !== 'function') return;
+    if (this._listeners.indexOf(listener) === -1) {
+      this._listeners.push(listener);
+    }
+  };
+
+  VirtualMessagePort.prototype.removeEventListener = function(type, listener) {
+    if (type !== 'message') return;
+    var idx = this._listeners.indexOf(listener);
+    if (idx !== -1) this._listeners.splice(idx, 1);
+  };
+
   VirtualMessagePort.prototype._dispatchMessage = function(data) {
+    // Real MessagePort message events report origin === '' (per spec).
+    // storm's defineRPCHandlers filters by portOrigin: '' so we must match.
+    var event = { data: data, origin: '', source: null };
     if (this.onmessage) {
-      this.onmessage({ data: data, origin: BOLT_ORIGIN, source: null });
+      try { this.onmessage(event); } catch (e) { console.error('[BoltBridge] port onmessage error:', e); }
+    }
+    for (var i = 0; i < this._listeners.length; i++) {
+      try { this._listeners[i](event); } catch (e) { console.error('[BoltBridge] port listener error:', e); }
     }
   };
 

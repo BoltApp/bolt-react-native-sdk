@@ -4,11 +4,10 @@
  * Generates example/src/boltConfig.ts from environment variables or a .env file.
  * The generated file is gitignored — never committed.
  *
- * If boltConfig.ts already exists, this script does nothing (preserves manual edits).
- * Delete the file and re-run to regenerate.
- *
- * If BOLT_PUBLISHABLE_KEY is not set, copies the example template so the project
- * still compiles (you'll need to fill in a real key to use the example app).
+ * If BOLT_PUBLISHABLE_KEY is set (env or .env), regenerates the file from those
+ * values. If not set and the file is missing, copies the example template so the
+ * project still compiles. If not set and the file exists, leaves it alone
+ * (preserves any manual edits you made directly in boltConfig.ts).
  *
  * Reads from:
  *   1. Environment variables
@@ -29,11 +28,6 @@ const ROOT = path.join(__dirname, '..');
 const ENV_FILE = path.join(ROOT, '.env');
 const OUT_FILE = path.join(ROOT, 'example', 'src', 'boltConfig.ts');
 const EXAMPLE_FILE = path.join(ROOT, 'example', 'src', 'boltConfig.example.ts');
-
-// Skip if already generated
-if (fs.existsSync(OUT_FILE)) {
-  process.exit(0);
-}
 
 // Load .env file if present (simple key=value parser)
 const loadDotEnv = () => {
@@ -61,7 +55,11 @@ const publishableKey = process.env.BOLT_PUBLISHABLE_KEY;
 const environment = process.env.BOLT_ENVIRONMENT ?? 'sandbox';
 
 if (!publishableKey) {
-  // No key configured — copy the example template so the project compiles.
+  // No key configured. Leave existing file alone (preserves manual edits);
+  // otherwise copy the example template so the project still compiles.
+  if (fs.existsSync(OUT_FILE)) {
+    process.exit(0);
+  }
   fs.copyFileSync(EXAMPLE_FILE, OUT_FILE);
   console.log(
     'No BOLT_PUBLISHABLE_KEY found. Copied boltConfig.example.ts → boltConfig.ts'
