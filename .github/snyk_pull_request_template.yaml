@@ -1,0 +1,35 @@
+---
+version: 1
+
+# The title of the Pull Request
+title: "[Snyk]: Upgrade ${package_name}"
+
+# The commit message used when Snyk merges or commits
+commit_message: "chore: upgrade ${package_name} from ${current_version} to ${target_version}"
+
+# The main body/description of the Pull Request
+description: |
+  ## 🛡️ Snyk Security Upgrade
+
+  This automated PR fixes security vulnerabilities found in **${package_name}**.
+
+  ### 📋 Changes
+  * **Package:** ${package_name}
+  * **Upgrade:** ${current_version} ➡️ ${target_version}
+  * **Severity:** ${highest_severity}
+
+  ### 🔒 Vulnerabilities Fixed
+  ${security_vulnerabilities}
+
+  ### Security Review
+  > [!IMPORTANT]
+  > A security review is required for every PR in this repository to comply with PCI requirements.
+
+  - [x] I have considered and reviewed security implications of this PR and included the summary below.
+
+  #### Security Impact Summary
+  The purpose of this PR is to update a dependency which meets the criteria set in snyk.
+
+  ### See settings [here](https://app.snyk.io/org/bolt-2.0-production/manage/integrations/github-cloud-app#tests-on-prs)
+  ---
+  *Automated by Snyk*
