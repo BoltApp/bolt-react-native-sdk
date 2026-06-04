@@ -2,10 +2,10 @@
 version: 1
 
 # The title of the Pull Request
-title: "[Snyk]: Upgrade {{package_name}}"
+title: "chore(deps): snyk dependency upgrade"
 
 # The commit message used when Snyk merges or commits
-commit_message: "chore: upgrade {{package_name}} from {{current_version}} to {{target_version}}"
+commit_message: "chore: upgrade {{package_name}} from {{package_from}} to {{package_to}}"
 
 # The main body/description of the Pull Request
 description: |
@@ -15,19 +15,13 @@ description: |
 
   ### 📋 Changes
   * **Package:** {{package_name}}
-  * **Upgrade:** {{current_version}} -> {{target_version}}
-  * **Severity:** {{highest_severity}}
-
-  ### 🔒 Vulnerabilities Fixed
-  {{security_vulnerabilities}}
+  * **Upgrade:** {{package_from}} → {{package_to}}
+  * **Issues fixed:** {{issue_count}}
 
   ### Security Review
-  - [x] I have considered and reviewed security implications of this PR and included the summary below.
+  - [] I have considered and reviewed security implications of this PR and included the summary below.
 
   #### Security Impact Summary
   The purpose of this PR is to update a dependency which meets the criteria set in snyk.
 
-  ### ⚙️  Settings
-  [here](https://app.snyk.io/org/bolt-2.0-production/manage/integrations/github-cloud-app#tests-on-prs)
-  ---
-  *Automated by Snyk*
+  ### ⚙️ [Settings](https://app.snyk.io/org/bolt-2.0-production/manage/integrations/github-cloud-app#tests-on-prs)
