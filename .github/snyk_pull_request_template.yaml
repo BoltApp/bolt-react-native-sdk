@@ -19,7 +19,7 @@ description: |
   * **Issues fixed:** {{issue_count}}
 
   ### Security Review
-  - [x] I have considered and reviewed security implications of this PR and included the summary below.
+  - [] I have considered and reviewed security implications of this PR and included the summary below.
 
   #### Security Impact Summary
   The purpose of this PR is to update a dependency which meets the criteria set in snyk.
