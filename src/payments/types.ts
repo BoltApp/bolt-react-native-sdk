@@ -126,6 +126,12 @@ export type GooglePayButtonTheme = 'dark' | 'light';
 export interface ApplePayResult {
   token: string;
   bin?: string;
+  /**
+   * Only populated in webview mode. Native mode tokenizes via
+   * @boltpay/tokenizer, whose decrypted PassKit payload only carries the
+   * DPAN and never surfaces last4.
+   */
+  last4?: string;
   network?: string;
   expiration?: string;
   billingContact?: ApplePayBillingContact;
