@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.8](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.7...v0.9.8) (2026-07-03)
+
+### Bug Fixes
+
+* **apple-pay:** forward last4 and network in webview onComplete ([#101](https://github.com/BoltApp/bolt-react-native-sdk/issues/101)) ([9f4e77d](https://github.com/BoltApp/bolt-react-native-sdk/commit/9f4e77da6696360410af3d734d3bcfed91ed252d)), closes [#64](https://github.com/BoltApp/bolt-react-native-sdk/issues/64)
+
 ## [0.9.7](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.6...v0.9.7) (2026-06-04)
 
 ## [0.9.6](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.5...v0.9.6) (2026-05-27)
