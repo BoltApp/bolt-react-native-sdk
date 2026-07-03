@@ -115,6 +115,8 @@ describe('ApplePayWebView — envelope unwrapping', () => {
             token: {
               token: 'tok_apple_123',
               bin: '411111',
+              last4: '1111',
+              network: 'visa',
               expiration: '2027-12',
             },
             billingContact: {
@@ -132,6 +134,8 @@ describe('ApplePayWebView — envelope unwrapping', () => {
     expect(onComplete).toHaveBeenCalledWith({
       token: 'tok_apple_123',
       bin: '411111',
+      last4: '1111',
+      network: 'visa',
       expiration: '2027-12',
       boltReference: 'ref_abc',
       billingContact: {
