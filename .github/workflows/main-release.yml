@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # REQUIRED: allows GitHub to issue an OIDC token that npm Trusted Publishing verifies
+      id-token: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -66,6 +68,7 @@ jobs:
 
       - name: Publish to npm
         if: steps.release.outputs.bumped == 'true'
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # REMOVED: NODE_AUTH_TOKEN env block. Authentication is handled via npm Trusted Publishing (OIDC),
+        # which must be configured for this package on npmjs.com — without it, this step fails with an auth error.
+        # RECOMMENDED: Added --provenance to securely link your npm package back to this source code
+        run: npm publish --access public --provenance
