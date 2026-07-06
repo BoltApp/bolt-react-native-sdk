@@ -3,6 +3,8 @@
 [![npm version](https://img.shields.io/npm/v/@boltpay/react-native)](https://www.npmjs.com/package/@boltpay/react-native)
 [![build](https://img.shields.io/github/actions/workflow/status/BoltApp/bolt-react-native-sdk/ci.yml?branch=main)](https://github.com/BoltApp/bolt-react-native-sdk/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/@boltpay/react-native)](LICENSE)
+<!-- oidc-publish-test: safe to remove -->
+
 
 Bolt React Native SDK for payments. Provides Credit Card tokenization, 3D Secure verification, Apple Pay, and Google Pay — all integrated with the Bolt payment platform.
 
