@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # REQUIRED: Gives GitHub permission to request OIDC tokens from npm
+      id-token: write 
     steps:
       - uses: actions/checkout@v6
         with:
@@ -50,7 +52,7 @@ jobs:
         if: steps.release.outputs.bumped == 'true'
         uses: actions/setup-node@v6
         with:
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: 'https://npmjs.org'
 
       - name: Build
         if: steps.release.outputs.bumped == 'true'
@@ -66,6 +68,6 @@ jobs:
 
       - name: Publish to npm
         if: steps.release.outputs.bumped == 'true'
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # REMOVED: NODE_AUTH_TOKEN env block. npm automatically handles authentication.
+        # RECOMMENDED: Added --provenance to securely link your npm package back to this source code
+        run: npm publish --access public --provenance
