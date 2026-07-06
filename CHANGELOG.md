@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.10](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.9...v0.9.10) (2026-07-06)
+
+### Bug Fixes
+
+* dummy change to verify OIDC npm publish end-to-end ([014830d](https://github.com/BoltApp/bolt-react-native-sdk/commit/014830d9edc589a29fb72dde9751928e44297642))
+
 ## [0.9.9](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.8...v0.9.9) (2026-07-06)
 
 ## [0.9.8](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.7...v0.9.8) (2026-07-03)
