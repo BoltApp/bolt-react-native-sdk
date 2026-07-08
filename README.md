@@ -411,7 +411,7 @@ The migration is a one-line import change. The controller API (`on()`, `tokenize
 | Prop          | Type                                   | Default     | Description                                                                                                       |
 | ------------- | -------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
 | `config`      | `ApplePayConfig`                       | required    | Country/currency, total amount, and optional merchant ID (`mode='native'` only)                                   |
-| `onComplete`  | `(ApplePayResult) => void`             | required    | Called with token, bin, network, expiration, and billing contact on success (plus last4 in webview mode)          |
+| `onComplete`  | `(ApplePayResult) => void`             | required    | Called with token, bin, network, expiration, and billing contact on success. `last4` is included in webview mode only |
 | `onError`     | `(Error) => void`                      | —           | Called on payment failure                                                                                         |
 | `mode`        | `'webview' \| 'native'`                | `'webview'` | `'webview'` uses the Bolt-hosted iframe (no entitlement needed). `'native'` uses PKPaymentButton + PassKit sheet. |
 | `buttonType`  | `ApplePayButtonType`                   | `'plain'`   | Button label variant. Auto-localized by Apple.                                                                    |
