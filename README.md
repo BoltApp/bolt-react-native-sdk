@@ -411,7 +411,7 @@ The migration is a one-line import change. The controller API (`on()`, `tokenize
 | Prop          | Type                                   | Default     | Description                                                                                                       |
 | ------------- | -------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
 | `config`      | `ApplePayConfig`                       | required    | Country/currency, total amount, and optional merchant ID (`mode='native'` only)                                   |
-| `onComplete`  | `(ApplePayResult) => void`             | required    | Called with token, bin, expiration, and billing contact on success                                                |
+| `onComplete`  | `(ApplePayResult) => void`             | required    | Called with token, bin, network, expiration, and billing contact on success. `last4` and `boltReference` are included in webview mode only |
 | `onError`     | `(Error) => void`                      | —           | Called on payment failure                                                                                         |
 | `mode`        | `'webview' \| 'native'`                | `'webview'` | `'webview'` uses the Bolt-hosted iframe (no entitlement needed). `'native'` uses PKPaymentButton + PassKit sheet. |
 | `buttonType`  | `ApplePayButtonType`                   | `'plain'`   | Button label variant. Auto-localized by Apple.                                                                    |
@@ -449,7 +449,7 @@ The migration is a one-line import change. The controller API (`on()`, `tokenize
 - `CreditCardInfo` — `CreditCardId | TokenResult` (input for `fetchReferenceID`)
 - `NativeCardFieldStyles` — `{ textColor?, fontSize?, placeholderColor?, borderColor?, borderWidth?, borderRadius?, backgroundColor?, fontFamily? }` (for `NativeCreditCard`)
 - `EventType` — `'error' | 'valid' | 'blur' | 'focus'`
-- `ApplePayResult` — `{ token, bin?, expiration?, billingContact?, boltReference? }` (`boltReference` is webview-mode only)
+- `ApplePayResult` — `{ token, bin?, last4?, network?, expiration?, billingContact?, boltReference? }` (`last4` and `boltReference` are webview-mode only — native mode's decrypted PassKit payload never carries last4)
 - `ApplePayButtonType` — Apple-approved button label variants (`'plain'`, `'buy'`, `'checkout'`, `'book'`, `'subscribe'`, `'donate'`, `'order'`, `'setUp'`, `'inStore'`, `'reload'`, `'addMoney'`, `'topUp'`, `'rent'`, `'support'`, `'contribute'`, `'tip'`)
 - `GooglePayResult` — `{ token, bin?, last4?, expiration?, email?, billingAddress? }`
 - `GooglePayButtonType` — Google-approved button label variants (`'plain'`, `'buy'`, `'pay'`, `'checkout'`, `'subscribe'`, `'donate'`, `'order'`, `'book'`)
