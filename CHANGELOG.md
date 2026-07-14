@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.11](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.9...v0.9.11) (2026-07-14)
+
+### Bug Fixes
+
+* **apple-pay:** forward card expiry in webview onComplete result ([#107](https://github.com/BoltApp/bolt-react-native-sdk/issues/107)) ([1dd988d](https://github.com/BoltApp/bolt-react-native-sdk/commit/1dd988d52d506583ddb0bd7a857d2848e9898a5f)), closes [#42](https://github.com/BoltApp/bolt-react-native-sdk/issues/42) [#63](https://github.com/BoltApp/bolt-react-native-sdk/issues/63)
+
 ## [0.9.9](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.8...v0.9.9) (2026-07-06)
 
 ## [0.9.8](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.7...v0.9.8) (2026-07-03)
