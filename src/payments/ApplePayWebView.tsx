@@ -159,7 +159,7 @@ export const ApplePayWebView = ({
           bin: tokenResult?.bin as string | undefined,
           last4: tokenResult?.last4 as string | undefined,
           network: tokenResult?.network as string | undefined,
-          expiration: tokenResult?.expiration as string | undefined,
+          expiration: tokenResult?.expiry as string | undefined,
           boltReference:
             typeof message.boltReference === 'string'
               ? message.boltReference

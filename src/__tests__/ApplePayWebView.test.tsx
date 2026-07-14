@@ -117,7 +117,9 @@ describe('ApplePayWebView — envelope unwrapping', () => {
               bin: '411111',
               last4: '1111',
               network: 'visa',
-              expiration: '2027-12',
+              // The iframe posts the raw tokenizer result (TokenizeApplePayResult),
+              // whose expiry field is `expiry` — not `expiration`.
+              expiry: '2027-12',
             },
             billingContact: {
               givenName: 'Jane',
