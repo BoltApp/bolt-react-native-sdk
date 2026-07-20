@@ -21,7 +21,7 @@ describe('Bolt', () => {
   it('should create a Bolt instance with publishableKey', () => {
     const bolt = new Bolt({ publishableKey: 'pk_test_123' });
     expect(bolt.publishableKey).toBe('pk_test_123');
-    expect(bolt.baseUrl).toBe('https://connect.bolt.com');
+    expect(bolt.baseUrl).toBe('https://connect.boltapp.com');
     expect(bolt.language).toBe('en');
   });
 
@@ -30,7 +30,7 @@ describe('Bolt', () => {
       publishableKey: 'pk_test_123',
       environment: 'sandbox',
     });
-    expect(bolt.baseUrl).toBe('https://connect-sandbox.bolt.com');
+    expect(bolt.baseUrl).toBe('https://connect-sandbox.boltapp.com');
   });
 
   it('should use staging URL when environment is staging', () => {
@@ -38,7 +38,7 @@ describe('Bolt', () => {
       publishableKey: 'pk_test_123',
       environment: 'staging',
     });
-    expect(bolt.baseUrl).toBe('https://connect-staging.bolt.com');
+    expect(bolt.baseUrl).toBe('https://connect-staging.boltapp.com');
   });
 
   it('should throw when publishableKey is missing', () => {

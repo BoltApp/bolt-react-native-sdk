@@ -23,8 +23,8 @@ jest.mock('../native/NativeCreditCardField', () => {
 jest.mock('../client/useBolt', () => ({
   useBolt: () => ({
     publishableKey: 'pk_test_456',
-    baseUrl: 'https://connect-sandbox.bolt.com',
-    apiUrl: 'https://api-sandbox.bolt.com',
+    baseUrl: 'https://connect-sandbox.boltapp.com',
+    apiUrl: 'https://api-sandbox.boltapp.com',
   }),
 }));
 

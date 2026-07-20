@@ -9,8 +9,8 @@ jest.mock('react-native-webview', () => ({}));
 jest.mock('../client/useBolt', () => ({
   useBolt: () => ({
     publishableKey: 'pk_test_123',
-    baseUrl: 'https://connect.bolt.com',
-    apiUrl: 'https://api-staging.bolt.com',
+    baseUrl: 'https://connect.boltapp.com',
+    apiUrl: 'https://api-staging.boltapp.com',
     getOnPageStyles: () => undefined,
   }),
 }));

@@ -38,8 +38,8 @@ jest.mock('../client/useBolt', () => ({
   useBolt: () => ({
     publishableKey: 'pk_test_123',
     environment: 'production' as const,
-    baseUrl: 'https://connect.bolt.com',
-    apiUrl: 'https://api.bolt.com',
+    baseUrl: 'https://connect.boltapp.com',
+    apiUrl: 'https://api.boltapp.com',
     apiHeaders: () => ({ 'X-Publishable-Key': 'pk_test_123' }),
   }),
 }));

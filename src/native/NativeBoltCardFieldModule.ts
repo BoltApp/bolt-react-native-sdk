@@ -11,7 +11,7 @@ export interface Spec extends TurboModule {
    *
    * @param viewTag React tag of the mounted BoltCreditCardField
    * @param publishableKey Bolt publishable key for Authorization header
-   * @param apiUrl Bolt API base URL (api.bolt.com or api-sandbox.bolt.com)
+   * @param apiUrl Bolt API base URL (api.boltapp.com or api-sandbox.boltapp.com)
    * @returns JSON-encoded TokenResult or error
    */
   tokenize(

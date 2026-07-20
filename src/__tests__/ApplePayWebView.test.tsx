@@ -39,7 +39,7 @@ jest.mock('../native/NativeApplePay', () => ({
 jest.mock('../client/useBolt', () => ({
   useBolt: () => ({
     publishableKey: 'pk_test_123',
-    baseUrl: 'https://connect.bolt.com',
+    baseUrl: 'https://connect.boltapp.com',
     language: 'en',
   }),
 }));

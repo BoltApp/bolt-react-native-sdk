@@ -32,12 +32,12 @@ describe('fetchGooglePayAPMConfig', () => {
       json: () => Promise.resolve(mockAPMConfig),
     });
 
-    await fetchGooglePayAPMConfig('https://api.bolt.com', {
+    await fetchGooglePayAPMConfig('https://api.boltapp.com', {
       'X-Publishable-Key': 'pk_test_abc',
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.bolt.com/v1/apm_config/googlepay',
+      'https://api.boltapp.com/v1/apm_config/googlepay',
       expect.objectContaining({
         method: 'GET',
         headers: { 'X-Publishable-Key': 'pk_test_abc' },
@@ -53,7 +53,7 @@ describe('fetchGooglePayAPMConfig', () => {
     });
 
     await expect(
-      fetchGooglePayAPMConfig('https://api.bolt.com', {
+      fetchGooglePayAPMConfig('https://api.boltapp.com', {
         'X-Publishable-Key': 'bad_key',
       })
     ).rejects.toThrow('Failed to fetch Google Pay config: 401 Unauthorized');
