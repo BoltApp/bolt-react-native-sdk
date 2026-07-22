@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.10.0](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.11...v0.10.0) (2026-07-22)
+
+### Features
+
+* migrate SDK API endpoints to boltapp.com domain ([#110](https://github.com/BoltApp/bolt-react-native-sdk/issues/110)) ([e859d37](https://github.com/BoltApp/bolt-react-native-sdk/commit/e859d371135695ff42c81c9b5b122cbeb2b87f61)), closes [#108](https://github.com/BoltApp/bolt-react-native-sdk/issues/108)
+
 ## [0.9.11](https://github.com/BoltApp/bolt-react-native-sdk/compare/v0.9.9...v0.9.11) (2026-07-14)
 
 ### Bug Fixes
