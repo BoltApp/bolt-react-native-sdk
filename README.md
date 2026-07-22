@@ -8,7 +8,7 @@ Bolt React Native SDK for payments. Provides Credit Card tokenization, 3D Secure
 
 ## Architecture
 
-- **Credit Card (WebView)** — WebView-based, loading secure pages from `connect.bolt.com`. Card data never touches your app (PCI SAQ A compliant).
+- **Credit Card (WebView)** — WebView-based, loading secure pages from `connect.boltapp.com`. Card data never touches your app (PCI SAQ A compliant).
 - **Credit Card (Native)** — Platform-native text fields (`UITextField` on iOS, `EditText` on Android). Card data stays in native memory, never enters the JS heap. Requires Bolt PCI SSS certification for SAQ A — see [Native Credit Card (Beta)](#7-native-credit-card-beta) below.
 - **Apple Pay & Google Pay** — Native Fabric view components for buttons (`PKPaymentButton` on iOS, `PayButton` on Android) with TurboModules for the payment sheet.
 
@@ -256,7 +256,7 @@ function CheckoutScreen() {
 
 ### 6. Styling
 
-Apply global styles to all Bolt components, or per-element styles at creation time. Uses the v3 CSS custom property format (`--bolt-{target}-{property}`). See [Bolt styling docs](https://help.bolt.com/products/checkout/embeddable-checkout/api-implementation/styling/style-components-v3/) for the full list of tokens.
+Apply global styles to all Bolt components, or per-element styles at creation time. Uses the v3 CSS custom property format (`--bolt-{target}-{property}`). See [Bolt styling docs](https://help.boltapp.com/products/checkout/embeddable-checkout/api-implementation/styling/style-components-v3/) for the full list of tokens.
 
 ```typescript
 // Global styles — applies to all elements

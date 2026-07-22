@@ -1,6 +1,6 @@
 {
   "name": "@boltpay/react-native",
-  "version": "0.9.11",
+  "version": "0.10.0",
   "description": "Bolt React Native SDK",
   "license": "MIT",
   "main": "./lib/module/index.js",
@@ -60,7 +60,7 @@
     "type": "git",
     "url": "git+https://github.com/BoltApp/bolt-react-native-sdk.git"
   },
-  "author": "BoltOwner <bolt@bolt.com> (https://www.bolt.com)",
+  "author": "BoltOwner <bolt@boltapp.com> (https://www.boltapp.com)",
   "bugs": {
     "url": "https://github.com/BoltApp/bolt-react-native-sdk/issues"
   },

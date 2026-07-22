@@ -33,8 +33,8 @@ jest.mock('../native/NativeBoltCardFieldModule', () => ({
 jest.mock('../client/useBolt', () => ({
   useBolt: () => ({
     publishableKey: 'pk_test_123',
-    baseUrl: 'https://connect.bolt.com',
-    apiUrl: 'https://api.bolt.com',
+    baseUrl: 'https://connect.boltapp.com',
+    apiUrl: 'https://api.boltapp.com',
   }),
 }));
 

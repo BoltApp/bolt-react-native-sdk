@@ -49,13 +49,13 @@ class BoltTokenizer {
     switch environment {
     case "sandbox":
       baseURL = "https://sandbox.bolttk.com"
-      fallbackURL = "https://tokenizer-sandbox.bolt.com"
+      fallbackURL = "https://tokenizer-sandbox.boltapp.com"
     case "staging":
       baseURL = "https://staging.bolttk.com"
-      fallbackURL = "https://tokenizer-staging.bolt.com"
+      fallbackURL = "https://tokenizer-staging.boltapp.com"
     default: // production (safest default for unknown env strings)
       baseURL = "https://production.bolttk.com"
-      fallbackURL = "https://tokenizer.bolt.com"
+      fallbackURL = "https://tokenizer.boltapp.com"
     }
   }
 

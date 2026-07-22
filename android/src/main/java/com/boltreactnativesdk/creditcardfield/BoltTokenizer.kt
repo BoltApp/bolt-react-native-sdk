@@ -53,15 +53,15 @@ class BoltTokenizer(environment: String) {
         when (environment) {
             "production" -> {
                 baseURL = "https://production.bolttk.com"
-                fallbackURL = "https://tokenizer.bolt.com"
+                fallbackURL = "https://tokenizer.boltapp.com"
             }
             "sandbox" -> {
                 baseURL = "https://sandbox.bolttk.com"
-                fallbackURL = "https://tokenizer-sandbox.bolt.com"
+                fallbackURL = "https://tokenizer-sandbox.boltapp.com"
             }
             else -> { // staging
                 baseURL = "https://staging.bolttk.com"
-                fallbackURL = "https://tokenizer-staging.bolt.com"
+                fallbackURL = "https://tokenizer-staging.boltapp.com"
             }
         }
     }

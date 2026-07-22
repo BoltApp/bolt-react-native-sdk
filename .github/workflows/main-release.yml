@@ -28,7 +28,7 @@ jobs:
       - name: Configure git
         run: |
           git config user.name "bolt-ci"
-          git config user.email "bolt-ci@bolt.com"
+          git config user.email "bolt-ci@boltapp.com"
 
       - uses: ./.github/actions/setup
 

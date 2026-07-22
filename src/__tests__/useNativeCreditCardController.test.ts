@@ -27,8 +27,8 @@ jest.mock('../native/NativeBoltCardFieldModule', () => ({
 jest.mock('../client/useBolt', () => ({
   useBolt: () => ({
     publishableKey: 'pk_test_123',
-    baseUrl: 'https://connect.bolt.com',
-    apiUrl: 'https://api-staging.bolt.com',
+    baseUrl: 'https://connect.boltapp.com',
+    apiUrl: 'https://api-staging.boltapp.com',
   }),
 }));
 
@@ -100,7 +100,7 @@ describe('useNativeCreditCardController', () => {
     expect(mockTokenize).toHaveBeenCalledWith(
       42,
       'pk_test_123',
-      'https://api-staging.bolt.com'
+      'https://api-staging.boltapp.com'
     );
     expect(tokenResult).toEqual({
       token: 'bolt_cc_test123',

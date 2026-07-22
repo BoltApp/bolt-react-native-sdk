@@ -13,8 +13,8 @@ export interface IframeUrlParams {
  * by dom-host.utils.ts in the storm codebase.
  *
  * Example output:
- *   https://connect.bolt.com/src/iframes/credit-card-input/index.html?
- *     origin=https%3A%2F%2Fconnect.bolt.com&publishableKey=pk_123&
+ *   https://connect.boltapp.com/src/iframes/credit-card-input/index.html?
+ *     origin=https%3A%2F%2Fconnect.boltapp.com&publishableKey=pk_123&
  *     l=en&transport=rn-webview&checkoutPageID=uuid
  */
 export const buildIframeUrl = (params: IframeUrlParams): string => {

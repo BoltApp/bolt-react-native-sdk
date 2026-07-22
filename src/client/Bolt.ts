@@ -9,15 +9,15 @@ export interface BoltConfig {
 }
 
 const ENVIRONMENT_URLS: Record<string, string> = {
-  production: 'https://connect.bolt.com',
-  sandbox: 'https://connect-sandbox.bolt.com',
-  staging: 'https://connect-staging.bolt.com',
+  production: 'https://connect.boltapp.com',
+  sandbox: 'https://connect-sandbox.boltapp.com',
+  staging: 'https://connect-staging.boltapp.com',
 };
 
 const API_URLS: Record<string, string> = {
-  production: 'https://api.bolt.com',
-  sandbox: 'https://api-sandbox.bolt.com',
-  staging: 'https://api-staging.bolt.com',
+  production: 'https://api.boltapp.com',
+  sandbox: 'https://api-sandbox.boltapp.com',
+  staging: 'https://api-staging.boltapp.com',
 };
 
 export class Bolt {
